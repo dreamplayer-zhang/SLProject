@@ -99,6 +99,12 @@ SLCVTrackedMapping::SLCVTrackedMapping(SLNode*      node,
         mptLocalMapping = new thread(&LocalMapping::Run, mpLocalMapper);
         mptLoopClosing  = new thread(&LoopClosing::Run, mpLoopCloser);
     }
+
+    _recordFramesDir = SLUtils::unifySlashes(SLFileSystem::getExternalDir() + "recordedFrames");
+    if (!SLFileSystem::fileExists(_recordFramesDir))
+    {
+        SLFileSystem::makeDir(_recordFramesDir);
+    }
 }
 //-----------------------------------------------------------------------------
 SLCVTrackedMapping::~SLCVTrackedMapping()
@@ -121,6 +127,8 @@ SLCVTrackedMapping::~SLCVTrackedMapping()
         delete mpLocalMapper;
     if (mpLoopCloser)
         delete mpLoopCloser;
+
+    _fs.release();
 }
 //-----------------------------------------------------------------------------
 SLbool SLCVTrackedMapping::track(SLCVMat          imageGray,
@@ -553,7 +561,13 @@ bool SLCVTrackedMapping::TrackWithOptFlow()
 //-----------------------------------------------------------------------------
 void SLCVTrackedMapping::track3DPts()
 {
-    mCurrentFrame = SLCVFrame(_imageGray, 0.0, _extractor, _calib->cameraMat(), _calib->distortion(), mpVocabulary, _retainImg);
+    mCurrentFrame = SLCVFrame(_imageGray,
+                              0.0,
+                              _extractor,
+                              _calib->cameraMat(),
+                              _calib->distortion(),
+                              mpVocabulary,
+                              _retainImg);
 
     //_videoWriter.write(_img);
 
@@ -735,30 +749,71 @@ void SLCVTrackedMapping::track3DPts()
         }
 
         //set current pose
+        cv::Mat Tcw;
+        if (_optFlowOK)
         {
-            cv::Mat Tcw;
-            if (_optFlowOK)
+            Tcw = _optFlowTcw.clone();
+        }
+        else
+        {
+            Tcw = mCurrentFrame.mTcw.clone();
+        }
+
+        cv::Mat Rwc(3, 3, CV_32F);
+        cv::Mat twc(3, 1, CV_32F);
+
+        //inversion
+        //auto Tcw = mCurrentFrame.mTcw.clone();
+        Rwc = Tcw.rowRange(0, 3).colRange(0, 3).t();
+        twc = -Rwc * Tcw.rowRange(0, 3).col(3);
+
+        //conversion to SLMat4f
+        SLMat4f slMat((SLfloat)Rwc.at<float>(0, 0), (SLfloat)Rwc.at<float>(0, 1), (SLfloat)Rwc.at<float>(0, 2), (SLfloat)twc.at<float>(0, 0), (SLfloat)Rwc.at<float>(1, 0), (SLfloat)Rwc.at<float>(1, 1), (SLfloat)Rwc.at<float>(1, 2), (SLfloat)twc.at<float>(1, 0), (SLfloat)Rwc.at<float>(2, 0), (SLfloat)Rwc.at<float>(2, 1), (SLfloat)Rwc.at<float>(2, 2), (SLfloat)twc.at<float>(2, 0), 0.0f, 0.0f, 0.0f, 1.0f);
+        slMat.rotate(180, 1, 0, 0);
+        // set the object matrix of this object (its a SLCamera)
+        _node->om(slMat);
+
+        if (_recordingFrameCoordinates)
+        {
+            // convert rotation matrix to quaternion
+            float q[4];
+            float trace = Rwc.at<float>(0, 0) + Rwc.at<float>(1, 1) + Rwc.at<float>(2, 2);
+
+            if (trace > 0.0)
             {
-                Tcw = _optFlowTcw.clone();
+                float s = sqrt(trace + 1.0);
+                q[3]    = (s * 0.5);
+                s       = 0.5 / s;
+                q[0]    = ((Rwc.at<float>(2, 1) - Rwc.at<float>(1, 2)) * s);
+                q[1]    = ((Rwc.at<float>(0, 2) - Rwc.at<float>(2, 0)) * s);
+                q[2]    = ((Rwc.at<float>(1, 0) - Rwc.at<float>(0, 1)) * s);
             }
             else
             {
-                Tcw = mCurrentFrame.mTcw.clone();
+                int i = Rwc.at<float>(0, 0) < Rwc.at<float>(1, 1) ? (Rwc.at<float>(1, 1) < Rwc.at<float>(2, 2) ? 2 : 1) : (Rwc.at<float>(0, 0) < Rwc.at<float>(2, 2) ? 2 : 0);
+                int j = (i + 1) % 3;
+                int k = (i + 2) % 3;
+
+                float s = sqrt(Rwc.at<float>(i, i) - Rwc.at<float>(j, j) - Rwc.at<float>(k, k) + 1.0);
+                q[i]    = s * 0.5;
+                s       = 0.5 / s;
+
+                q[3] = (Rwc.at<float>(k, j) - Rwc.at<float>(j, k)) * s;
+                q[j] = (Rwc.at<float>(j, i) + Rwc.at<float>(i, j)) * s;
+                q[k] = (Rwc.at<float>(k, i) + Rwc.at<float>(i, k)) * s;
             }
 
-            cv::Mat Rwc(3, 3, CV_32F);
-            cv::Mat twc(3, 1, CV_32F);
-
-            //inversion
-            //auto Tcw = mCurrentFrame.mTcw.clone();
-            Rwc = Tcw.rowRange(0, 3).colRange(0, 3).t();
-            twc = -Rwc * Tcw.rowRange(0, 3).col(3);
-
-            //conversion to SLMat4f
-            SLMat4f slMat((SLfloat)Rwc.at<float>(0, 0), (SLfloat)Rwc.at<float>(0, 1), (SLfloat)Rwc.at<float>(0, 2), (SLfloat)twc.at<float>(0, 0), (SLfloat)Rwc.at<float>(1, 0), (SLfloat)Rwc.at<float>(1, 1), (SLfloat)Rwc.at<float>(1, 2), (SLfloat)twc.at<float>(1, 0), (SLfloat)Rwc.at<float>(2, 0), (SLfloat)Rwc.at<float>(2, 1), (SLfloat)Rwc.at<float>(2, 2), (SLfloat)twc.at<float>(2, 0), 0.0f, 0.0f, 0.0f, 1.0f);
-            slMat.rotate(180, 1, 0, 0);
-            // set the object matrix of this object (its a SLCamera)
-            _node->om(slMat);
+            // record frame and coordinates
+            saveFrameWithCoordinates(_recordFrameId,
+                                     &_imageGray,
+                                     twc.at<float>(0, 0),
+                                     twc.at<float>(1, 0),
+                                     twc.at<float>(2, 0),
+                                     q[0],
+                                     q[1],
+                                     q[2],
+                                     q[3]);
+            _recordFrameId++;
         }
 
         // Clean VO matches
@@ -953,7 +1008,7 @@ bool SLCVTrackedMapping::CreateInitialMapMonocular()
     }
 
     // Bundle Adjustment
-    cout << "Number of Map points after local mapping: " << _map->MapPointsInMap() << endl;
+    //cout << "Number of Map points after local mapping: " << _map->MapPointsInMap() << endl;
 
     //ghm1: add keyframe to scene graph. this position is wrong after bundle adjustment!
     //set map dirty, the map will be updated in next decoration
@@ -1020,19 +1075,19 @@ bool SLCVTrackedMapping::NeedNewKeyFrame()
         // Otherwise send a signal to interrupt BA
         if (bLocalMappingIdle)
         {
-            std::cout << "[SLCVTrackedMapping] NeedNewKeyFrame: YES bLocalMappingIdle!" << std::endl;
+            //std::cout << "[SLCVTrackedMapping] NeedNewKeyFrame: YES bLocalMappingIdle!" << std::endl;
             return true;
         }
         else
         {
             mpLocalMapper->InterruptBA();
-            std::cout << "[SLCVTrackedMapping] NeedNewKeyFrame: NO InterruptBA!" << std::endl;
+            //std::cout << "[SLCVTrackedMapping] NeedNewKeyFrame: NO InterruptBA!" << std::endl;
             return false;
         }
     }
     else
     {
-        std::cout << "[SLCVTrackedMapping] NeedNewKeyFrame: NO!" << std::endl;
+        //std::cout << "[SLCVTrackedMapping] NeedNewKeyFrame: NO!" << std::endl;
         return false;
     }
 }
@@ -1836,10 +1891,67 @@ size_t SLCVTrackedMapping::getSizeOf()
 
     return size;
 }
-
+//-----------------------------------------------------------------------------
 SLCVKeyFrame* SLCVTrackedMapping::currentKeyFrame()
 {
     SLCVKeyFrame* result = mCurrentFrame.mpReferenceKF;
 
     return result;
+}
+//-----------------------------------------------------------------------------
+void SLCVTrackedMapping::saveFrameWithCoordinates(int      frameId,
+                                                  cv::Mat* imgGray,
+                                                  float    x,
+                                                  float    y,
+                                                  float    z,
+                                                  float    a,
+                                                  float    b,
+                                                  float    c,
+                                                  float    d)
+{
+    _fs << "{";
+    _fs << "id" << frameId;
+
+    std::stringstream ss;
+    ss << _recordFramesDir << "frame" << frameId << ".png";
+    _fs << "img" << ss.str();
+
+    // save image
+    cv::imwrite(ss.str(), *imgGray);
+
+    // save coordinates
+    _fs << "x" << x;
+    _fs << "y" << y;
+    _fs << "z" << z;
+    _fs << "a" << a;
+    _fs << "b" << b;
+    _fs << "c" << c;
+    _fs << "d" << d;
+
+    _fs << "}";
+}
+//-----------------------------------------------------------------------------
+void SLCVTrackedMapping::startRecordingFrameCoordinates()
+{
+    std::string filename = _recordFramesDir + "coordinates.json";
+
+    _fs = cv::FileStorage(filename, cv::FileStorage::WRITE);
+
+    if (_fs.isOpened())
+    {
+        _fs << "frameCoordinates";
+        _fs << "[";
+        _recordingFrameCoordinates = true;
+    }
+    else
+    {
+        SL_LOG("Could not open file %s to record frame coordinates.\n", filename.c_str());
+    }
+}
+//-----------------------------------------------------------------------------
+void SLCVTrackedMapping::stopRecordingFrameCoordinates()
+{
+    _fs << "]";
+    _fs.release();
+    _recordingFrameCoordinates = false;
 }

@@ -18,17 +18,18 @@
 
 //-----------------------------------------------------------------------------
 const char* SLImGuiTrackedMapping::_currItem = NULL;
-int SLImGuiTrackedMapping::_currN = -1;
+int         SLImGuiTrackedMapping::_currN    = -1;
 //-----------------------------------------------------------------------------
 SLImGuiTrackedMapping::SLImGuiTrackedMapping(string name, SLCVTrackedMapping* mappingTracker)
-    : SLImGuiInfosDialog(name),
+  : SLImGuiInfosDialog(name),
     _mappingTracker(mappingTracker)
 {
 }
 //-----------------------------------------------------------------------------
 void SLImGuiTrackedMapping::buildInfos()
 {
-    if (ImGui::Button("Reset", ImVec2(ImGui::GetContentRegionAvailWidth(), 0.0f))) {
+    if (ImGui::Button("Reset", ImVec2(ImGui::GetContentRegionAvailWidth(), 0.0f)))
+    {
         //_mappingTracker->Pause();
         _mappingTracker->sm.requestStateIdle();
         while (!_mappingTracker->sm.hasStateIdle())
@@ -39,7 +40,8 @@ void SLImGuiTrackedMapping::buildInfos()
         //_mappingTracker->Resume();
         _mappingTracker->sm.requestResume();
     }
-    if (ImGui::Button("Bundle adjustment", ImVec2(ImGui::GetContentRegionAvailWidth(), 0.0f))) {
+    if (ImGui::Button("Bundle adjustment", ImVec2(ImGui::GetContentRegionAvailWidth(), 0.0f)))
+    {
         _mappingTracker->globalBundleAdjustment();
     }
 
@@ -59,7 +61,7 @@ void SLImGuiTrackedMapping::buildInfos()
         ImGui::Text("Number of LoopClosings : %d ", _mappingTracker->getMap()->getNumLoopClosings());
         //ImGui::Text("Number of LoopClosings : %d ", _mappingTracker->mpLoopCloser->numOfLoopClosings());
         ImGui::Text("Loop closing status : %s ", _mappingTracker->mpLoopCloser->getStatusString());
-        ImGui::Text("Keyframes in Loop closing queue : %d", _mappingTracker->mpLoopCloser->numOfKfsInQueue());
+        //ImGui::Text("Keyframes in Loop closing queue : %d", _mappingTracker->mpLoopCloser->numOfKfsInQueue());
 
 #if 0
         ImGui::Text("Number of Loop Candidates : %d", _mappingTracker->mpLoopCloser->numOfCandidates());
@@ -68,6 +70,7 @@ void SLImGuiTrackedMapping::buildInfos()
 #endif
     }
 
+#if 0
     SLCVKeyFrame* kf = _mappingTracker->currentKeyFrame();
     if (kf)
     {
@@ -77,6 +80,7 @@ void SLImGuiTrackedMapping::buildInfos()
     {
         ImGui::Text("No keyframe yet");
     }
+#endif
 
     //show 2D key points in video image
     SLbool b = _mappingTracker->getTrackOptFlow();
@@ -91,7 +95,26 @@ void SLImGuiTrackedMapping::buildInfos()
     float bHeigth = 60.0f;
 #endif
 
-    if (ImGui::Button("Attempt loop close", ImVec2(ImGui::GetContentRegionAvailWidth(), bHeigth))) {
-        _mappingTracker->mpLoopCloser->startLoopCloseAttempt();
+    if (_mappingTracker->mpLoopCloser->manualLoopClose())
+    {
+        if (ImGui::Button("Attempt loop close", ImVec2(ImGui::GetContentRegionAvailWidth(), bHeigth)))
+        {
+            _mappingTracker->mpLoopCloser->startLoopCloseAttempt();
+        }
+    }
+
+    if (!_mappingTracker->recordingFrameCoordinates())
+    {
+        if (ImGui::Button("Start recording frame coordinates", ImVec2(ImGui::GetContentRegionAvailWidth(), bHeigth)))
+        {
+            _mappingTracker->startRecordingFrameCoordinates();
+        }
+    }
+    else
+    {
+        if (ImGui::Button("Stop recording frame coordinates", ImVec2(ImGui::GetContentRegionAvailWidth(), bHeigth)))
+        {
+            _mappingTracker->stopRecordingFrameCoordinates();
+        }
     }
 }

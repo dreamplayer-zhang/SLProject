@@ -66,7 +66,7 @@ void LocalMapping::Run()
 
         // Tracking will see that Local Mapping is busy (not used for keyframe insertion but as a condition
         SetAcceptKeyFrames(false);
-        printf("%i keyframes in localmapping queue before check\n", mlNewKeyFrames.size());
+        //printf("%i keyframes in localmapping queue before check\n", mlNewKeyFrames.size());
 
         // Check if there are keyframes in the queue
         while (CheckNewKeyFrames())
@@ -103,7 +103,7 @@ void LocalMapping::Run()
             }
             else
             {
-                printf("Still %i keyframes in localmapping queue\n", mlNewKeyFrames.size());
+                //printf("Still %i keyframes in localmapping queue\n", mlNewKeyFrames.size());
             }
 
             mpLoopCloser->InsertKeyFrame(mpCurrentKeyFrame);

@@ -77,6 +77,7 @@ class LoopClosing
     void RequestFinish();
 
     bool isFinished();
+    bool manualLoopClose() { return _manualLoopClose; }
 
     enum LoopCloseStatus
     {

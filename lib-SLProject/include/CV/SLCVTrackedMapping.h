@@ -72,6 +72,10 @@ class SLCVTrackedMapping : public SLCVTracked
     int mMinFrames = 0;
     int mMaxFrames = 30; //= fps
 
+    bool recordingFrameCoordinates() { return _recordingFrameCoordinates; }
+    void startRecordingFrameCoordinates();
+    void stopRecordingFrameCoordinates();
+
     private:
     // Map initialization for monocular
     bool CreateInitialMapMonocular();
@@ -97,6 +101,16 @@ class SLCVTrackedMapping : public SLCVTracked
 
     //optical flow tracking functions
     bool posInGrid(const cv::KeyPoint& kp, int& posX, int& posY, int minX, int minY);
+
+    void saveFrameWithCoordinates(int      frameId,
+                                  cv::Mat* imgGray,
+                                  float    x,
+                                  float    y,
+                                  float    z,
+                                  float    a,
+                                  float    b,
+                                  float    c,
+                                  float    d);
 
     //Motion Model
     cv::Mat mVelocity;
@@ -163,7 +177,12 @@ class SLCVTrackedMapping : public SLCVTracked
     bool _serial;
 
     //cv::VideoWriter _videoWriter;
-    bool _videoCaptureStarted = false;
+    bool _videoCaptureStarted       = false;
+    bool _recordingFrameCoordinates = false;
+
+    cv::FileStorage _fs;
+    int             _recordFrameId = 0;
+    std::string     _recordFramesDir;
 };
 //-----------------------------------------------------------------------------
 #endif // SLCVTrackedMapping_H
