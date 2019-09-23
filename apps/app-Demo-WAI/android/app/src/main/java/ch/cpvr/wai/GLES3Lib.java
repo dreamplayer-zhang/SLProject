@@ -50,7 +50,7 @@ public class GLES3Lib {
     public static final int VIDEO_TYPE_SCND = 2;    // Maps to Androids front facing camera
     public static final int VIDEO_TYPE_FILE = 3;    // Maps to Androids front facing camera
 
-    public static native void    onInit             (int width, int height, int dotsPerInch, String FilePath);
+    public static native void    onInit             (int dotsPerInch, String FilePath);
     public static native boolean onUpdateTracking   ();
     public static native boolean onUpdateScene      ();
     public static native boolean onPaintAllViews    ();
@@ -78,6 +78,7 @@ public class GLES3Lib {
     public static native void    onSetupExternalDir (String externalDirPath);
     public static native void    setCameraSize      (int sizeIndex, int sizeIndexMax, int width, int height);
     public static native void    setDeviceParameter (String parameter, String value);
+    public static native boolean hasException();
 
     /**
      * The RaytracingCallback function is used to repaint the ray tracing image during the

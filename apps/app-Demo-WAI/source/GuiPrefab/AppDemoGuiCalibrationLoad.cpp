@@ -15,16 +15,17 @@
 #include <Utils.h>
 #include <AppDemoGuiCalibrationLoad.h>
 #include <CVCapture.h>
+#include "WAIException.h"
 
 //-----------------------------------------------------------------------------
 
-AppDemoGuiCalibrationLoad::AppDemoGuiCalibrationLoad(const std::string& name, std::string calDir, WAI::WAI * wai, WAICalibration* wc, bool* activator)
+AppDemoGuiCalibrationLoad::AppDemoGuiCalibrationLoad(const std::string& name, std::string calDir, WAI::WAI* wai, WAICalibration* wc, bool* activator)
   : AppDemoGuiInfosDialog(name, activator),
-  _wai(wai),
-  _wc(wc)
+    _wai(wai),
+    _wc(wc)
 {
     _calibrationDir = Utils::unifySlashes(calDir);
-    _currentItem = "";
+    _currentItem    = "";
 
     _existingCalibrationNames.clear();
 
@@ -50,7 +51,7 @@ AppDemoGuiCalibrationLoad::AppDemoGuiCalibrationLoad(const std::string& name, st
 
 void AppDemoGuiCalibrationLoad::loadCalibration(std::string path)
 {
-    WAI::ModeOrbSlam2 * mode = (WAI::ModeOrbSlam2 *)_wai->getCurrentMode();
+    WAI::ModeOrbSlam2* mode = (WAI::ModeOrbSlam2*)_wai->getCurrentMode();
     mode->requestStateIdle();
     while (!mode->hasStateIdle())
     {
@@ -60,6 +61,8 @@ void AppDemoGuiCalibrationLoad::loadCalibration(std::string path)
 
     _wc->loadFromFile(path);
     WAI::CameraCalibration calibration = _wc->getCameraCalibration();
+    if (!calibration.resize(_wai->getTrackingImgSize()))
+        throw WAI::WAIException("Could not resize calibration to tracking image size!", __FILE__, __LINE__);
     _wai->activateSensor(WAI::SensorType_Camera, &calibration);
 
     mode->resume();

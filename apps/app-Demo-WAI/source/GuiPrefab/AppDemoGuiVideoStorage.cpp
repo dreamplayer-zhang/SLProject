@@ -25,7 +25,7 @@ AppDemoGuiVideoStorage::AppDemoGuiVideoStorage(const std::string& name, std::str
     _videoWriterInfo(videoWriterInfo),
     _gpsDataFile(gpsDataStream)
 {
-    _videoDir    = Utils::unifySlashes(videoDir);
+    _videoDir = Utils::unifySlashes(videoDir);
 
     //check if visual odometry maps directory exists
     if (!Utils::dirExists(_videoDir))
@@ -91,9 +91,9 @@ void AppDemoGuiVideoStorage::saveGPSData(std::string videofile)
 //-----------------------------------------------------------------------------
 void AppDemoGuiVideoStorage::buildInfos(SLScene* s, SLSceneView* sv)
 {
-    ImGui::Begin("Video storage", _activator, 0);
+    ImGui::Begin("Video storage", _activator, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Separator();
-    if (ImGui::Button("Start recording", ImVec2(ImGui::GetContentRegionAvailWidth(), 0.0f)))
+    if (ImGui::Button("Start recording"))
     {
         cv::Size    size     = cv::Size(CVCapture::instance()->lastFrame.cols, CVCapture::instance()->lastFrame.rows);
         std::string filename = Utils::getDateTime2String() + "_" +

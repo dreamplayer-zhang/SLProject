@@ -388,7 +388,8 @@ void WAIMapPoint::UpdateNormalAndDepth()
 
     cv::Mat     PC               = Pos - pRefKF->GetCameraCenter();
     const float dist             = cv::norm(PC);
-    const int   level            = pRefKF->mvKeysUn[observations[pRefKF]].octave;
+    size_t      index            = observations[pRefKF];
+    const int   level            = pRefKF->mvKeysUn[index].octave;
     const float levelScaleFactor = pRefKF->mvScaleFactors[level];
     const int   nLevels          = pRefKF->mnScaleLevels;
 

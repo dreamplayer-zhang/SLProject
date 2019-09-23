@@ -8,6 +8,7 @@
 #include <WAIMapStorage.h>
 
 #include <WAICalibration.h>
+#include <WAIException.h>
 #include <AppWAIScene.h>
 #include <AppDemoGui.h>
 #include <AppDemoGuiMenu.h>
@@ -66,21 +67,31 @@ WAI::ModeOrbSlam2* WAIApp::mode            = nullptr;
 bool               WAIApp::loaded          = false;
 ofstream           WAIApp::gpsDataStream;
 
-int WAIApp::load(int width, int height, float scr2fbX, float scr2fbY, int dpi, AppWAIDirectories* directories)
+void WAIApp::init(AppWAIDirectories* directories)
 {
     dirs = directories;
-    SLApplication::devRot.isUsed(true);
-    SLApplication::devLoc.isUsed(true);
 
     wai             = new WAI::WAI(dirs->waiDataRoot);
     wc              = new WAICalibration();
     waiScene        = new AppWAIScene();
     videoWriter     = new cv::VideoWriter();
     videoWriterInfo = new cv::VideoWriter();
+}
 
-    wc->changeImageSize(width, height);
-    wc->loadFromFile(dirs->writableDir + "/calibrations/camCalib_" + SLApplication::getComputerInfos() + "_main.xml");
+int WAIApp::load(int dpi)
+{
+    //I have the feeling that this is never used, but I keep it here so we do not forget about it..
+    float scr2fbX = 1.0f, scr2fbY = 1.0f;
+
+    const cv::Size& imgSize = wai->getTrackingImgSize();
+    wc->changeImageSize(imgSize.width, imgSize.height);
+    if (!wc->loadFromFile(dirs->writableDir + "/calibrations/camCalib_" + SLApplication::getComputerInfos() + "_main.xml"))
+        ;//throw WAI::WAIException("Could not load calibration file!", __FILE__, __LINE__);
+    //throw WAI::WAIException("Could not load calibration file!", __FILE__, __LINE__);
     WAI::CameraCalibration calibration = wc->getCameraCalibration();
+    if (!calibration.resize(wai->getTrackingImgSize()))
+        ;//throw WAI::WAIException("Could not resize calibration to tracking image size!", __FILE__, __LINE__);
+
     wai->activateSensor(WAI::SensorType_Camera, &calibration);
     mode = ((WAI::ModeOrbSlam2*)wai->setMode(WAI::ModeType_ORB_SLAM2));
 
@@ -99,8 +110,8 @@ int WAIApp::load(int width, int height, float scr2fbX, float scr2fbY, int dpi, A
     uiPrefs.setDPI(dpi);
     uiPrefs.load();
 
-    int svIndex = slCreateSceneView((int)(width * scr2fbX),
-                                    (int)(height * scr2fbY),
+    int svIndex = slCreateSceneView((int)(imgSize.width * scr2fbX),
+                                    (int)(imgSize.height * scr2fbY),
                                     dpi,
                                     (SLSceneID)0,
                                     nullptr,
@@ -163,8 +174,7 @@ void WAIApp::setupGUI()
 
     AppDemoGui::addInfoDialog(new AppDemoGuiSlamParam("Slam Param", dirs->writableDir + "/voc/", wai, &uiPrefs.showSlamParam));
 
-    AppDemoGui::addInfoDialog(new AppDemoGuiCalibrationLoad("Calibration Load", dirs->writableDir + "calibrations/",
-                                                            wai, wc, &uiPrefs.showCalibrationLoad));
+    AppDemoGui::addInfoDialog(new AppDemoGuiCalibrationLoad("Calibration Load", dirs->writableDir + "calibrations/", wai, wc, &uiPrefs.showCalibrationLoad));
     //TODO: AppDemoGuiInfosDialog are never deleted. Why not use smart pointer when the reponsibility for an object is not clear?
 }
 

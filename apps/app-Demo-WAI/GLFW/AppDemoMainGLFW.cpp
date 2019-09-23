@@ -20,6 +20,7 @@
 #include <AppWAI.h>
 #include <WAIModeOrbSlam2.h>
 #include <WAIAutoCalibration.h>
+#include <WAIException.h>
 
 #include <CVCapture.h>
 #include <CVCalibration.h>
@@ -442,7 +443,7 @@ void onGLFWError(int error, const char* description)
 }
 //-----------------------------------------------------------------------------
 
-void GLFWInit()
+void GLFWInit(int scrW, int scrH)
 {
     if (!glfwInit())
     {
@@ -461,8 +462,8 @@ void GLFWInit()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    scrWidth  = 640;
-    scrHeight = 360;
+    scrWidth  = scrW;
+    scrHeight = scrH;
 
     //we have to fix aspect ratio, because the video image is initialized with this ratio
     fixAspectRatio = true;
@@ -538,45 +539,69 @@ The C main procedure running the GLFW GUI application.
 */
 int main(int argc, char* argv[])
 {
-    GLFWInit();
-
-    AppWAIDirectories dirs;
-
-    dirs.waiDataRoot = SLstring(SL_PROJECT_ROOT) + "/data";
-    dirs.slDataRoot  = SLstring(SL_PROJECT_ROOT) + "/data";
-    dirs.writableDir = Utils::getAppsWritableDir();
-
-    CVCapture::instance()->open(0);
-    svIndex = WAIApp::load(scrWidth, scrHeight, scr2fbX, scr2fbY, dpi, &dirs);
-
-    CVCapture::instance()->videoType(VT_MAIN);
-    CVCapture::instance()->start(scrWdivH);
-
-    // Event loop
-    while (!slShouldClose())
+    try
     {
-        if (CVCapture::instance()->videoType() != VT_NONE)
+        AppWAIDirectories dirs;
+        dirs.waiDataRoot = SLstring(SL_PROJECT_ROOT) + "/data";
+        dirs.slDataRoot  = SLstring(SL_PROJECT_ROOT) + "/data";
+        dirs.writableDir = Utils::getAppsWritableDir();
+        WAIApp::init(&dirs);
+
+        scrWidth  = WAIApp::wai->getTrackingImgSize().width;
+        scrHeight = WAIApp::wai->getTrackingImgSize().height;
+        GLFWInit(scrWidth, scrHeight);
+
+        CVCapture::instance()->open(0);
+        svIndex = WAIApp::load(dpi); //dpi is initialized in GLFWInit
+
+        CVCapture::instance()->videoType(VT_MAIN);
+        CVCapture::instance()->start(scrWdivH);
+
+        // Event loop
+        while (!slShouldClose())
         {
-            CVCapture::instance()->grabAndAdjustForSL(scrWdivH);
+            if (CVCapture::instance()->videoType() != VT_NONE)
+            {
+                CVCapture::instance()->grabAndAdjustForSL(scrWdivH);
+            }
+
+            WAIApp::update();
+            slUpdateScene();
+
+            SLbool doRepaint = slPaintAllViews();
+            glfwSwapBuffers(window);
+            glfwSetWindowTitle(window, slGetWindowTitle(svIndex).c_str());
+
+            // if no updated occurred wait for the next event (power saving)
+            if (!doRepaint)
+                glfwWaitEvents();
+            else
+                glfwPollEvents();
         }
 
-        WAIApp::update();
-        slUpdateScene();
-
-        SLbool doRepaint = slPaintAllViews();
-        glfwSwapBuffers(window);
-        glfwSetWindowTitle(window, slGetWindowTitle(svIndex).c_str());
-
-        // if no updated occurred wait for the next event (power saving)
-        if (!doRepaint)
-            glfwWaitEvents();
-        else
-            glfwPollEvents();
+        slTerminate();
+        glfwDestroyWindow(window);
+        glfwTerminate();
+    }
+    catch (WAI::WAIException& e)
+    {
+        std::cout << e.what() << std::endl;
+        cout << "Press Enter to Continue";
+        cin.ignore();
+    }
+    catch (std::exception& e)
+    {
+        std::cout << e.what() << std::endl;
+        cout << "Press Enter to Continue";
+        cin.ignore();
+    }
+    catch (...)
+    {
+        std::cout << "Unknown exception catched!" << std::endl;
+        cout << "Press Enter to Continue";
+        cin.ignore();
     }
 
-    slTerminate();
-    glfwDestroyWindow(window);
-    glfwTerminate();
     return 0;
 }
 //-----------------------------------------------------------------------------

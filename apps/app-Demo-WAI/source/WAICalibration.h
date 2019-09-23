@@ -24,10 +24,10 @@ class WAICalibration
 
     std::string computerInfo() { return _computerInfo; }
     std::string filename() { return _filename; }
-    float calcCameraVerticalFOV();
-    float calcCameraHorizontalFOV();
-    float calcCameraVerticalFOV(cv::Mat& cameraMat);
-    float calcCameraHorizontalFOV(cv::Mat& cameraMat);
+    float       calcCameraVerticalFOV();
+    float       calcCameraHorizontalFOV();
+    float       calcCameraVerticalFOV(cv::Mat& cameraMat);
+    float       calcCameraHorizontalFOV(cv::Mat& cameraMat);
 
     void                   computeMatrix(cv::Mat& mat, float fov);
     WAI::CameraCalibration getCameraCalibration();
@@ -37,14 +37,16 @@ class WAICalibration
     std::string            getCalibrationPath() { return _calibrationPath; }
     std::string            stateStr();
 
-    float fx() { return _cameraMat.cols == 3 && _cameraMat.rows == 3 ? (float)_cameraMat.at<double>(0, 0) : 0.0f; }
-    float fy() { return _cameraMat.cols == 3 && _cameraMat.rows == 3 ? (float)_cameraMat.at<double>(1, 1) : 0.0f; }
-    float cx() { return _cameraMat.cols == 3 && _cameraMat.rows == 3 ? (float)_cameraMat.at<double>(0, 2) : 0.0f; }
-    float cy() { return _cameraMat.cols == 3 && _cameraMat.rows == 3 ? (float)_cameraMat.at<double>(1, 2) : 0.0f; }
-    float k1() { return _distortion.rows >= 4 ? (float)_distortion.at<double>(0, 0) : 0.0f; }
-    float k2() { return _distortion.rows >= 4 ? (float)_distortion.at<double>(1, 0) : 0.0f; }
-    float p1() { return _distortion.rows >= 4 ? (float)_distortion.at<double>(2, 0) : 0.0f; }
-    float p2() { return _distortion.rows >= 4 ? (float)_distortion.at<double>(3, 0) : 0.0f; }
+    float    fx() { return _cameraMat.cols == 3 && _cameraMat.rows == 3 ? (float)_cameraMat.at<double>(0, 0) : 0.0f; }
+    float    fy() { return _cameraMat.cols == 3 && _cameraMat.rows == 3 ? (float)_cameraMat.at<double>(1, 1) : 0.0f; }
+    float    cx() { return _cameraMat.cols == 3 && _cameraMat.rows == 3 ? (float)_cameraMat.at<double>(0, 2) : 0.0f; }
+    float    cy() { return _cameraMat.cols == 3 && _cameraMat.rows == 3 ? (float)_cameraMat.at<double>(1, 2) : 0.0f; }
+    float    k1() { return _distortion.rows >= 4 ? (float)_distortion.at<double>(0, 0) : 0.0f; }
+    float    k2() { return _distortion.rows >= 4 ? (float)_distortion.at<double>(1, 0) : 0.0f; }
+    float    p1() { return _distortion.rows >= 4 ? (float)_distortion.at<double>(2, 0) : 0.0f; }
+    float    p2() { return _distortion.rows >= 4 ? (float)_distortion.at<double>(3, 0) : 0.0f; }
+    float    k3() { return _distortion.rows >= 5 ? (float)_distortion.at<double>(4, 0) : 0.0f; }
+    cv::Size size() { return _imgSize; }
 
     protected:
     CalibrationState _state;

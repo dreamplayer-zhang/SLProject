@@ -24,6 +24,8 @@
 JNIEnv*           environment; //! Pointer to JAVA environment used in ray tracing callback
 int               svIndex;     //!< SceneView index
 AppWAIDirectories dirs;
+bool              hasException = false;
+std::string       exceptionMsg;
 //-----------------------------------------------------------------------------
 /*! Java Native Interface (JNI) function declarations. These functions are
 called by the Java interface class GLES3Lib. The function name follows the pattern
@@ -32,7 +34,7 @@ The functions mostly forward to the C-Interface functions of SLProject declared
 in SLInterface.h.
 */
 extern "C" {
-JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_onInit(JNIEnv* env, jclass obj, jint width, jint height, jint dpi, jstring filePath);
+JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_onInit(JNIEnv* env, jclass obj, jint dpi, jstring filePath);
 JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_onTerminate(JNIEnv* env, jclass obj);
 JNIEXPORT jboolean JNICALL Java_ch_cpvr_wai_GLES3Lib_onUpdateTracking(JNIEnv* env, jclass obj);
 JNIEXPORT jboolean JNICALL Java_ch_cpvr_wai_GLES3Lib_onUpdateScene(JNIEnv* env, jclass obj);
@@ -58,6 +60,7 @@ JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_onSetupExternalDir(JNIEnv* env,
 JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_copyVideoYUVPlanes(JNIEnv* env, jclass obj, jint srcW, jint srcH, jbyteArray yBuf, jint ySize, jint yPixStride, jint yLineStride, jbyteArray uBuf, jint uSize, jint uPixStride, jint uLineStride, jbyteArray vBuf, jint vSize, jint vPixStride, jint vLineStride);
 JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_setCameraSize(JNIEnv* env, jclass obj, jint sizeIndex, jint sizeIndexMax, jint width, jint height);
 JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_setDeviceParameter(JNIEnv* env, jclass obj, jstring parameter, jstring value);
+JNIEXPORT jboolean JNICALL Java_ch_cpvr_wai_GLES3Lib_hasException(JNIEnv* env, jclass obj);
 };
 
 //-----------------------------------------------------------------------------
@@ -82,21 +85,29 @@ std::string jstring2stdstring(JNIEnv* env, jstring jStr)
     return stdString;
 }
 //-----------------------------------------------------------------------------
-extern "C" JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_onInit(JNIEnv* env, jclass obj, jint width, jint height, jint dpi, jstring filePath)
+extern "C" JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_onInit(JNIEnv* env, jclass obj, jint dpi, jstring filePath)
 {
-    environment              = env;
-    const char* nativeString = env->GetStringUTFChars(filePath, 0);
-    dirs.slDataRoot          = std::string(nativeString);
-    dirs.waiDataRoot         = std::string(nativeString);
-    env->ReleaseStringUTFChars(filePath, nativeString);
+    try {
+        environment              = env;
+        const char* nativeString = env->GetStringUTFChars(filePath, 0);
+        dirs.slDataRoot          = std::string(nativeString);
+        dirs.waiDataRoot         = std::string(nativeString);
+        env->ReleaseStringUTFChars(filePath, nativeString);
 
-    CVImage::defaultPath = dirs.slDataRoot + "/images/textures/";
-    CVCapture::instance()->loadCalibrations(SLApplication::getComputerInfos(),   // deviceInfo string
-                                            dirs.writableDir + "/calibrations/", // for calibrations made
-                                            dirs.writableDir + "/calibrations/", // for calibInitPath
-                                            dirs.writableDir + "/videos/");      // for videos
+        CVImage::defaultPath = dirs.slDataRoot + "/images/textures/";
+        CVCapture::instance()->loadCalibrations(SLApplication::getComputerInfos(),   // deviceInfo string
+                                                dirs.writableDir + "/calibrations/", // for calibrations made
+                                                dirs.writableDir + "/calibrations/", // for calibInitPath
+                                                dirs.writableDir + "/videos/");      // for videos
 
-    svIndex = WAIApp::load(width, height, 1.0, 1.0, dpi, &dirs);
+        WAIApp::init(&dirs);
+        svIndex = WAIApp::load(dpi);
+    }
+    catch(std::exception& e)
+    {
+        hasException = true;
+        exceptionMsg = e.what();
+    }
 }
 //-----------------------------------------------------------------------------
 extern "C" JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_onTerminate(JNIEnv* env, jclass obj)
@@ -278,3 +289,8 @@ extern "C" JNIEXPORT void JNICALL Java_ch_cpvr_wai_GLES3Lib_setDeviceParameter(J
     slSetDeviceParameter(par.c_str(), val.c_str());
 }
 //-----------------------------------------------------------------------------
+extern "C" JNIEXPORT jboolean JNICALL
+Java_ch_cpvr_wai_GLES3Lib_hasException(JNIEnv* env, jclass obj)
+{
+    return hasException;
+}

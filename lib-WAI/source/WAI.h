@@ -18,13 +18,15 @@ class WAI_API WAI
 {
     public:
     WAI(std::string dataRoot);
-    void  setDataRoot(std::string dataRoot);
-    void  activateSensor(SensorType sensorType, void* sensorInfo);
-    void  updateSensor(SensorType type, void* value);
-    bool  whereAmI(cv::Mat* pose);
-    Mode* setMode(ModeType mode);
-    Mode* getCurrentMode();
+    void     setDataRoot(std::string dataRoot);
+    void     activateSensor(SensorType sensorType, void* sensorInfo);
+    void     updateSensor(SensorType type, void* value);
+    bool     whereAmI(cv::Mat* pose);
+    Mode*    setMode(ModeType mode);
+    Mode*    getCurrentMode();
     ModeType getCurrentModeType();
+    //!target size used for tracking
+    const cv::Size& getTrackingImgSize() const { return _trackingImgSize; }
 
     private:
     std::string                   _featuresType;
@@ -32,7 +34,7 @@ class WAI_API WAI
     Mode*                         _mode = nullptr;
     ModeType                      _modeType;
     std::map<SensorType, Sensor*> _sensors;
-
+    cv::Size                      _trackingImgSize = {640, 360};
 };
 }
 

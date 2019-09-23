@@ -86,26 +86,41 @@ void AppDemoGuiTestOpen::buildInfos(SLScene* s, SLSceneView* sv)
         _wc->loadFromFile(info.calPath);
 
         WAI::CameraCalibration calibration = _wc->getCameraCalibration();
-        _wai->activateSensor(WAI::SensorType_Camera, &calibration);
-
-        WAI::ModeOrbSlam2* mode = (WAI::ModeOrbSlam2*)_wai->getCurrentMode();
-        mode->requestStateIdle();
-        while (!mode->hasStateIdle())
+        //resize camera calibration to meet target size
+        if (calibration.resize(_wai->getTrackingImgSize()))
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            _wai->activateSensor(WAI::SensorType_Camera, &calibration);
+
+            WAI::ModeOrbSlam2* mode = (WAI::ModeOrbSlam2*)_wai->getCurrentMode();
+            mode->requestStateIdle();
+            while (!mode->hasStateIdle())
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            mode->reset();
+
+            WAIMapStorage::loadMap(mode->getMap(), mode->getKfDB(), _mapNode, info.mapPath, "");
+
+            CVCapture::instance()->videoType(VT_FILE);
+            CVCapture::instance()->videoFilename = info.vidPath;
+            CVCapture::instance()->videoLoops    = true;
+            CVCapture::instance()->openFile();
+
+            mode->resume();
+            mode->setInitialized(true);
+
+            //give status message feedback
+            _statusMsg = _infos[_currentItem].name;
         }
-        mode->reset();
-
-        WAIMapStorage::loadMap(mode->getMap(), mode->getKfDB(), _mapNode, info.mapPath, "");
-
-        CVCapture::instance()->videoType(VT_FILE);
-        CVCapture::instance()->videoFilename = info.vidPath;
-        CVCapture::instance()->videoLoops    = true;
-        CVCapture::instance()->openFile();
-
-        mode->resume();
-        mode->setInitialized(true);
+        else
+        {
+            //give status message feedback
+            _statusMsg = "Calibration aspect ratio does not fit!";
+        }
     }
+
+    //status message
+    ImGui::Text(("Status: " + _statusMsg).c_str());
 
     ImGui::Separator();
 

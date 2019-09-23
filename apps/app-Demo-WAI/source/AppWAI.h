@@ -32,7 +32,8 @@
 class WAIApp
 {
     public:
-    static int load(int width, int height, float scr2fbX, float scr2fbY, int dpi, AppWAIDirectories* dirs);
+    static void init(AppWAIDirectories* dirs);
+    static int  load(int dpi);
 
     static void onLoadWAISceneView(SLScene* s, SLSceneView* sv, SLSceneID sid);
     static bool update();
@@ -48,7 +49,7 @@ class WAIApp
 
     static void renderKeyframes();
     static void renderGraphs();
-    static void refreshTexture(cv::Mat *image);
+    static void refreshTexture(cv::Mat* image);
 
     static void setupGUI();
     static void buildGUI(SLScene* s, SLSceneView* sv);
