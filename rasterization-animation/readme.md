@@ -1,5 +1,5 @@
 # Rasterization animation
-
+#### A purely script based animation that explains the process of the Rasterization
 ![colored polygon](ScanLine.png)
 
 Rasterization animation explains the procedure of the Rasterization.
@@ -38,7 +38,7 @@ Now you can run a low preview with:
 python manim\manim.py SLProject\rasterization-animation\pixel_screen.py -pl
 ```
 And select a scene:
-![list of all scenes](cmd.png)
+![list of all scenes](cmd.PNG)
 (Scene 6: PixelBox and Scene 7: PixelLine **can't** be run as a Scene)
 
 
