@@ -386,7 +386,7 @@ class ScanLine(Scene):
 
         self.wait(5)
 
-        #self.play(FadeIn(Square(**self.end_box).set_fill(BLACK,1)))
+        self.play(FadeIn(Square(**self.end_box).set_fill(BLACK,1)))
 
     def draw_line_box(self,x1,x2,y, pixel):
         if x2 - x1 <= 1:
@@ -399,13 +399,15 @@ class ScanLine(Scene):
         sort_scanline_template = TexMobject(r"{ y }_{ n }=\begin{bmatrix} all\quad x\quad with\quad { y }_{ n } \end{bmatrix}")
         sort_scanline_template.to_edge(LEFT)
 
+        all_x_on_y = self.get_all_x_on_y(pixel)
 
         sort_scanline_tex_group = []
-        for number in pixel.height:
-            temp = TexMobject("{ y }_{", number.get_tex_string(), "}= [ ", "...", "]")
-            temp.move_to(number).to_edge(LEFT)
-            temp.scale(0.8)
-            sort_scanline_tex_group.append(temp)
+        for number, i in zip(pixel.height, range(len(pixel.height))):
+            temp0 = TexMobject("{ y }_{", number.get_tex_string(), "}= [", "\\quad]")
+
+            temp0.move_to(number).to_edge(LEFT).scale(0.8)
+
+            sort_scanline_tex_group.append(temp0)
 
         self.play(Write(sort_scanline_template))
         self.wait(5)
@@ -414,33 +416,39 @@ class ScanLine(Scene):
         pointer = Arrow(LEFT,ORIGIN).shift(LEFT)
         pointer.set_stroke(WHITE,8).shift(LEFT)
 
-
         self.play(
-            *[ReplacementTransform(number.copy(), tex[1])
+            *[ReplacementTransform(number.copy(),  tex[1])
               for number, tex in zip(pixel.height, sort_scanline_tex_group)]
         )
         self.play(
-            *[FadeIn(tex[i]) for i in (0, 2, 4) for tex in sort_scanline_tex_group]
+            *[FadeIn(tex[i]) for i in (0, 2, 3) for tex in sort_scanline_tex_group]
         )
-
-        all_x_on_y = self.get_all_x_on_y(pixel)
-
+        uglyList = []
         for i in range(len(pixel.height)).__reversed__():
             line_x = pixel.get_box_line_x(i)
             self.play(pointer.move_to, line_x[0], pointer.shift, LEFT)
             self.play(*[FadeIn(box) for box in line_x], run_time=0.3)
             if len(all_x_on_y[i]) > 1:
                 points = self.show_numbers_x(all_x_on_y, i, pixel, False)
-                self.play(*[ReplacementTransform(p, sort_scanline_tex_group[i][3]) for p in points])
+
+                if len(all_x_on_y[i]) > 1:
+                    temp1 = TexMobject(str(all_x_on_y[i]).strip('[]'), "]")
+                else:
+                    temp1 = TexMobject("\\quad", "]")
+                temp1.scale(0.8).next_to(sort_scanline_tex_group[i][2]).shift(LEFT*0.2)
+                uglyList.append(temp1)
+                self.play(ReplacementTransform(sort_scanline_tex_group[i][3], temp1[1]),
+                          *[ReplacementTransform(point, temp1[0]) for point in points])
 
             if(i < 8):
                 speed = 0.5
 
         self.wait()
-        all_x_on_y_tex = TexMobject("all\_ x\_ on\_ y= [", "...", "]").to_edge(LEFT)
+        all_x_on_y_tex = TexMobject("all\_ x\_ on\_ y= [", "...", "]").to_edge(LEFT*0.2)
 
         self.play(FadeOut(pointer),
-                *[ReplacementTransform(tex, all_x_on_y_tex[1]) for tex in sort_scanline_tex_group])
+                *[ReplacementTransform(tex, all_x_on_y_tex[1]) for tex in sort_scanline_tex_group],
+                *[ReplacementTransform(tex, all_x_on_y_tex[1]) for tex in uglyList])
 
         self.wait()
         self.play(FadeIn(all_x_on_y_tex[0]), FadeIn(all_x_on_y_tex[2]))
@@ -633,6 +641,29 @@ class Interpolation(Scene):
 
         focus_rect = SurroundingRectangle(boxes[0], buff=0.15)
 
+        red_matrix = self.show_rgb_vector(RED).get_tex_string()
+        blue_matrix = self.show_rgb_vector(BLUE).get_tex_string()
+
+
+        linear_interpolation_tex = TexMobject("\\frac{"+str(n)+"}{" + str(n) + "}",     #0
+                                              "* ",                                         #1
+                                              blue_matrix,                                  #2
+                                              "+",                                          #3
+                                              "\\frac{" + str(0) + "}{" + str(n) + "}", #4
+                                              "* ",                                         #5
+                                              red_matrix,                                   #6
+                                              "=",                                          #7
+                                              blue_matrix)                                  #8
+        linear_interpolation_title = TextMobject("Linear Interpolation")\
+            .next_to(linear_interpolation_tex, UP*4.5)\
+            .scale(0.7)
+
+        linear_interpolation_tex.shift(UP)
+        linear_interpolation_tex[2].set_color(BLUE)
+        linear_interpolation_tex[6].set_color(RED)
+        linear_interpolation_tex[8].set_color(BLUE)
+
+
         self.play(
             FadeInFromDown(blue_amount),
             FadeInFromDown(red_amount)
@@ -653,6 +684,11 @@ class Interpolation(Scene):
 
         self.play(ShowCreation(focus_rect))
 
+        self.play(Write(linear_interpolation_tex),
+                  Write(linear_interpolation_title))
+
+        self.wait(2)
+
         def update_text_blue(obj):
             obj.next_to(focus_rect, UP)
 
@@ -667,37 +703,66 @@ class Interpolation(Scene):
 
         self.wait(2)
 
+        blue_amount_tex = TexMobject("\\frac{"+str(n-1)+"}{" +str(n)+"}").move_to(linear_interpolation_tex[0])
+        red_amount_tex = TexMobject("\\frac{"+str(1) + "}{"+str(n)+"}").move_to(linear_interpolation_tex[4])
         # first colored pixel
         self.play(focus_rect.move_to, boxes[1],
                   ChangeDecimalToValue(blue_amount, 100 - (14.28571 * 1)),
-                  ChangeDecimalToValue(red_amount, 0 + (14.28571 * 1)))
+                  ChangeDecimalToValue(red_amount, 0 + (14.28571 * 1)),
+                  ReplacementTransform(linear_interpolation_tex[0], blue_amount_tex),
+                  ReplacementTransform(linear_interpolation_tex[4], red_amount_tex))
 
         self.wait(4)
 
-        new_color = self.interpolate_redblue(14.25 * 1 / 100)
+        new_color = self.interpolate_redblue(14.28571 * 1 / 100)
+        new_color_tex = TexMobject(self.show_rgb_vector(new_color).get_tex_string()).move_to(linear_interpolation_tex[8])
+        new_color_tex.set_color(new_color)
+
         self.play(boxes[1].set_fill, new_color, 1,
-                  boxes[1].set_color, new_color)
+                  boxes[1].set_color, new_color,
+                  ReplacementTransform(linear_interpolation_tex[8], new_color_tex))
         if 1 != n:
             color_vecs.append(self.show_rgb_vector(new_color).next_to(boxes[1], UP))
 
         self.wait()
 
+        old_blue_amount_tex = blue_amount_tex
+        old_red_amount_tex = red_amount_tex
+        old_new_color_tex = new_color_tex
+
 
         for i in range(2, n + 1):
+
+            blue_amount_tex = TexMobject("\\frac{" + str(n-i) + "}{" + str(n) + "}").move_to(old_blue_amount_tex)
+            red_amount_tex = TexMobject("\\frac{" + str(i) + "}{" + str(n) + "}").move_to(old_red_amount_tex)
+
             self.play(focus_rect.move_to, boxes[i],
                       ChangeDecimalToValue(blue_amount, 100 - (14.28571 * i)),
-                      ChangeDecimalToValue(red_amount, 0 + (14.28571 * i)))
+                      ChangeDecimalToValue(red_amount, 0 + (14.28571 * i)),
+                      ReplacementTransform(old_blue_amount_tex, blue_amount_tex),
+                      ReplacementTransform(old_red_amount_tex, red_amount_tex))
 
-
-            new_color = self.interpolate_redblue(14.25 * i / 100)
+            new_color = self.interpolate_redblue(14.28571 * i / 100 + 0.001)
+            new_color_tex = TexMobject(self.show_rgb_vector(new_color).get_tex_string()).move_to(old_new_color_tex)
+            new_color_tex.set_color(new_color)
             self.play(boxes[i].set_fill, new_color, 1,
-                      boxes[i].set_color, new_color)
+                      boxes[i].set_color, new_color,
+                      ReplacementTransform(old_new_color_tex, new_color_tex))
             if i != n:
                 color_vecs.append(self.show_rgb_vector(new_color).next_to(boxes[i], UP))
 
+            old_blue_amount_tex = blue_amount_tex
+            old_red_amount_tex = red_amount_tex
+            old_new_color_tex = new_color_tex
+
         self.play(FadeOutAndShiftDown(blue_amount),
                   FadeOutAndShiftDown(red_amount),
-                  Uncreate(focus_rect))
+                  Uncreate(focus_rect),
+                  FadeOut(old_new_color_tex),
+                  FadeOut(old_red_amount_tex),
+                  FadeOut(old_blue_amount_tex),
+                  FadeOut(linear_interpolation_title),
+                  *[FadeOut(linear_interpolation_tex[i]) for i in (1,2,3,5,6,7)])
 
 
         self.save_color_vec(color_vecs, vertex_save[7])
@@ -771,7 +836,7 @@ class Rasterization(Scene):
                 "color": BLUE,
                 "fill_opacity": 0.0,
                 "position": (1, 3),
-                "color_rgb": (0, 100, 225),#for vertex
+                "color_rgb": (0, 102, 225),#for vertex
             },
             {
                 "index": 21,
@@ -1119,6 +1184,7 @@ class Rasterization(Scene):
         self.add(*[pixel for pixel in pixel_boxes])
         return vertex_box, vertex_save
 
+
 class Intro(Scene):
     def construct(self):
         title = TextMobject("How to rasterize \\\\ a triangle")
@@ -1128,7 +1194,7 @@ class Intro(Scene):
 
         self.wait(1.5)
 
-        self.play(FadeOut(title))
+        #self.play(FadeOut(title))
 
 class Outro(Scene):
     CONFIG = {
@@ -1143,18 +1209,19 @@ class Outro(Scene):
         # "fill_color" : LIGHT_GREY,
     }
     def construct(self):
-        credit = TextMobject("This Video was made possible with:").to_edge(UP).shift(DOWN)
+        credit = TextMobject("This Video was made possible with:").to_edge(UP).shift(DOWN*0.5)
         manim_title = TextMobject("Manim").scale(2)
         sub_title = TextMobject("(Mathematical Animation Engine)").scale(0.5)
         sponserd_by = TextMobject("And sponsored by:")
-        bfh_logo = ImageMobject("BFH")
-        bfh_text = TextMobject("cpvrLab").scale(0.5)
+        bfh_logo = ImageMobject("BFH").scale(1.5)
+
+        creator = TextMobject("voice and animatinos by Cédric Girardin").scale(0.8)
 
         manim_title.next_to(credit, DOWN)
         sub_title.next_to(manim_title, DOWN)
-        sponserd_by.next_to(sub_title,DOWN).shift(DOWN*0.5)
+        sponserd_by.next_to(sub_title,DOWN)
         bfh_logo.next_to(sponserd_by,DOWN)
-        bfh_text.next_to(bfh_logo ,DOWN)
+        creator.next_to(bfh_logo, DOWN)
 
         self.play(Write(credit))
         self.play(Write(manim_title))
@@ -1162,7 +1229,8 @@ class Outro(Scene):
 
         self.play(Write(sponserd_by), )
         self.play(FadeIn(bfh_logo))
-        self.play(Write(bfh_text))
+
+        self.play(Write(creator))
 
         self.wait()
 
