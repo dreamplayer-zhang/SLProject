@@ -11,9 +11,9 @@ and was a strong  inspiration for making the Rasterization animation
 
 The video can be watch on Youtube with the voice over from Cédric Girardin
 
-<a href="http://www.youtube.com/watch?feature=player_embedded&v=YOUR_VIDEO_ID
-" target="_blank"><img src="http://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg" 
-alt="IMAGE ALT TEXT HERE" width="360" height="270" border="10" /></a>
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=t7Ztio8cwqM
+" target="_blank"><img src="http://img.youtube.com/vi/t7Ztio8cwqM/0.jpg" 
+alt="Youtube Video" width="360" height="270" border="10" /></a>
 
 ### Installation
 
