@@ -123,11 +123,8 @@ void runRelocalizationTestBench(RelocalizationTestBench& b)
     for (int i = 0; i < b.testCases.size(); i++)
     {
         RelocalizationTestCase   c = b.testCases[i];
-        RelocalizationTestResult r = runRelocalizationTest(
-          Utils::getAppsWritableDir() + std::string("videos/") + c.videoFileName,
-          Utils::getAppsWritableDir() + std::string("calibrations/") + c.calibrationFileName,
-          Utils::getAppsWritableDir() + std::string("maps/") + b.mapFileName,
-          Utils::getAppsWritableDir() + std::string("voc/") + b.vocFileName);
+        std::cout << "run test " << c.videoFileName << " " << c.calibrationFileName << " " << b.mapFileName << " " << b.vocFileName << std::endl;
+        RelocalizationTestResult r = runRelocalizationTest(c.videoFileName, c.calibrationFileName, b.mapFileName, b.vocFileName);
 
         // scene;conditions;videoFileName;calibrationName;mapName;vocName;frameCount;relocalizationFrameCount;ratio
         printf("%s;%s;%s;%s;%s;%s;%i;%i;%.2f\n",
@@ -156,6 +153,10 @@ void addRelocalizationTestCase(std::vector<RelocalizationTestCase>& tests,
         if (getCalibrationFileNameFromVideoFileName(test.videoFileName, &test.calibrationFileName))
         {
             tests.push_back(test);
+        }
+        else
+        {
+            std::cerr << "Calibration file not found" << std::endl;
         }
     }
     else
@@ -187,111 +188,124 @@ RelocalizationTestBench createRelocalizationTestBench(std::string location,
     return result;
 }
 
-int main()
+#define RELOC   0
+#define TRACK   1
+#define DEFAULT_ANALYZER RELOC
+#define DEFAULT_SCENE "default"
+#define DEFAULT_WEATHER "sunny"
+#define DEFAULT_DIR "."
+#define DEFAULT_MAP "map.json"
+#define DEFAULT_CALIB ""
+#define DEFAULT_VOC "voc.bin"
+
+
+void parseArgs(int argc, char ** argv)
+{
+    int analyzer = DEFAULT_ANALYZER;
+    std::string scene = DEFAULT_SCENE;
+    std::string weather = DEFAULT_WEATHER;
+    std::string calib = DEFAULT_CALIB;
+    std::string map = DEFAULT_MAP;
+    std::string voc = DEFAULT_VOC;
+    std::string dir = DEFAULT_DIR;
+
+
+    std::vector<std::string> args;
+    for (int i = 1; i < argc; i++)
+        args.push_back(std::string(argv[i]));
+
+    for (int i = 0; i < args.size(); i++)
+    {
+        std::string s = args[i];
+        if (s.compare("-t") == 0 && i < args.size()-1)
+        {
+            if (args[i+1].compare("reloc") == 0)
+                analyzer = RELOC;
+            else if (args[i+1].compare("tracking") == 0)
+                analyzer = TRACK;
+            i++;
+        }
+        else if (s.compare("-s") == 0 && i < args.size()-1)
+        {
+            scene = args[i+1];
+            i++;
+        }
+        else if (s.compare("-w") == 0 && i < args.size()-1)
+        {
+            if (args[i+1].compare("sunny") == 0)
+                weather = "sunny";
+            else if (args[i+1].compare("shade") == 0)
+                weather = "shade";
+            else if (args[i+1].compare("cloudy") == 0)
+                weather = "cloudy";
+            i++;
+        }
+        else if (s.compare("-c") == 0 && i < args.size()-1)
+        {
+            calib = args[i+1];
+            i++;
+        }
+        else if (s.compare("-m") == 0 && i < args.size()-1)
+        {
+            map = args[i+1];
+            i++;
+        }
+        else if (s.compare("-v") == 0 && i < args.size()-1)
+        {
+            voc = args[i+1];
+            i++;
+        }
+        else
+        {
+            dir = Utils::unifySlashes(args[i]);
+        }
+    }
+
+    switch(analyzer)
+    {
+        case RELOC:
+            std::cout << "Relocalization test" << std::endl;
+            break;
+        case TRACK:
+            std::cout << "Tracking test" << std::endl;
+            break;
+    }
+    std::cout << "scene " << scene << std::endl;
+    std::cout << "weather " << weather << std::endl;
+    if (calib.compare("") == 0)
+        std::cout << "calibration file path is get from video name" << std::endl;
+    else
+        std::cout << "calibration : " << calib << std::endl;
+
+    std::cout << "vocabulary " << voc  << std::endl;
+    std::cout << "directory " << dir << std::endl;
+
+    if (analyzer == RELOC)
+    {
+        RelocalizationTestBench testBench = createRelocalizationTestBench(scene, weather, map, voc);
+        std::vector<std::string> files = Utils::getFileNamesInDir(dir);
+        for (auto it = files.begin(); it != files.end(); it++)
+        {
+            std::string ext = Utils::getFileExt(*it);
+            if (ext.compare("avi") == 0 ||  ext.compare("mp4") == 0)
+            {
+                addRelocalizationTestCase(testBench, *it, calib);
+            }
+        }
+        runRelocalizationTestBench(testBench);
+    }
+    else if (analyzer == TRACK)
+    {
+
+    }
+    return;
+}
+
+int main(int argc, char ** argv)
 {
     DUtils::Random::SeedRandOnce(1337);
 
-    std::vector<RelocalizationTestBench> testBenches;
-
-    RelocalizationTestBench southwallBench = createRelocalizationTestBench("southwall",
-                                                                           "shade",
-                                                                           "160919-143001_android-mcrd1-35-ASUS-A002.json",
-                                                                           "ORBvoc.bin");
-
-    addRelocalizationTestCase(southwallBench, "160919-143001_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench, "160919-143002_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench, "160919-143003_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench, "160919-143004_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench, "160919-143001_cm-cm-build-c25-TA-1021_640.mp4");
-    addRelocalizationTestCase(southwallBench, "160919-143002_cm-cm-build-c25-TA-1021_640.mp4");
-    addRelocalizationTestCase(southwallBench, "160919-143003_cm-cm-build-c25-TA-1021_640.mp4");
-    addRelocalizationTestCase(southwallBench, "160919-143004_cm-cm-build-c25-TA-1021_640.mp4");
-    //addRelocalizationTestCase(southwallBench, "160919-143001_test-whe505af1e71561618241641-2786283903-9c5cl-CLT-AL01_640.mp4");
-    addRelocalizationTestCase(southwallBench, "200919-154459_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench, "011019-164748_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench, "011019-164844_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench, "011019-165120_cm-cm-build-c25-TA-1021_640.mp4");
-
-    /*
-    addRelocalizationTestCase(southwallBench, "160919-143001_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench, "160919-143002_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench, "160919-143002_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench, "160919-143002_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench, "160919-143001_cm-cm-build-c25-TA-1021_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench, "160919-143002_cm-cm-build-c25-TA-1021_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench, "160919-143003_cm-cm-build-c25-TA-1021_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench, "160919-143004_cm-cm-build-c25-TA-1021_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench, "160919-143001_test-whe505af1e71561618241641-2786283903-9c5cl-CLT-AL01_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench, "200919-154459_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-*/
-
-    //testBenches.push_back(southwallBench);
-
-    RelocalizationTestBench southwallBench2 = createRelocalizationTestBench("southwall",
-                                                                            "shade",
-                                                                            "160919-143001_android-mcrd1-35-ASUS-A002.json",
-                                                                            "voc_southwall_200919_154459_android-mcrd1-35-ASUS-A002_640.bin");
-
-    addRelocalizationTestCase(southwallBench2, "160919-143001_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "160919-143002_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "160919-143003_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "160919-143004_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "160919-143001_cm-cm-build-c25-TA-1021_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "160919-143002_cm-cm-build-c25-TA-1021_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "160919-143003_cm-cm-build-c25-TA-1021_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "160919-143004_cm-cm-build-c25-TA-1021_640.mp4");
-    //addRelocalizationTestCase(southwallBench2, "160919-143001_test-whe505af1e71561618241641-2786283903-9c5cl-CLT-AL01_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "200919-154459_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "011019-164748_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "011019-164844_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallBench2, "011019-165120_cm-cm-build-c25-TA-1021_640.mp4");
-
-    /*
-    addRelocalizationTestCase(southwallBench2, "160919-143001_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench2, "160919-143002_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench2, "160919-143002_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench2, "160919-143002_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench2, "160919-143001_cm-cm-build-c25-TA-1021_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench2, "160919-143002_cm-cm-build-c25-TA-1021_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench2, "160919-143003_cm-cm-build-c25-TA-1021_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench2, "160919-143004_cm-cm-build-c25-TA-1021_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench2, "160919-143001_test-whe505af1e71561618241641-2786283903-9c5cl-CLT-AL01_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallBench2, "200919-154459_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    */
-
-    //testBenches.push_back(southwallBench2);
-
-    RelocalizationTestBench augstBench = createRelocalizationTestBench("augst",
-                                                                       "sunny",
-                                                                       "map_augst_021019-115200_android-mcrd1-35-ASUS-A002.json",
-                                                                       "ORBvoc.bin");
-
-    addRelocalizationTestCase(augstBench, "021019-115146_cm-cm-build-c25-TA-1021_640.mp4");
-    addRelocalizationTestCase(augstBench, "021019-115233_android-mcrd1-35-ASUS-A002_640.mp4");
-
-    testBenches.push_back(augstBench);
-
-    RelocalizationTestBench southwallMarkerMapBench = createRelocalizationTestBench("southwall",
-                                                                                    "shade",
-                                                                                    "marker_map.json",
-                                                                                    "ORBvoc.bin");
-
-    addRelocalizationTestCase(southwallMarkerMapBench, "160919-143003_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallMarkerMapBench, "160919-143004_android-mcrd1-35-ASUS-A002_640.mp4");
-    addRelocalizationTestCase(southwallMarkerMapBench, "160919-143001_cm-cm-build-c25-TA-1021_640.mp4");
-    addRelocalizationTestCase(southwallMarkerMapBench, "160919-143002_cm-cm-build-c25-TA-1021_640.mp4");
-    addRelocalizationTestCase(southwallMarkerMapBench, "160919-143002_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallMarkerMapBench, "160919-143002_android-mcrd1-35-ASUS-A002_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallMarkerMapBench, "160919-143001_cm-cm-build-c25-TA-1021_640.mp4", "camCalib_generic_smartphone.xml");
-    addRelocalizationTestCase(southwallMarkerMapBench, "160919-143002_cm-cm-build-c25-TA-1021_640.mp4", "camCalib_generic_smartphone.xml");
-
-    testBenches.push_back(southwallMarkerMapBench);
-
-    for (int benchIndex = 0; benchIndex < testBenches.size(); benchIndex++)
-    {
-        RelocalizationTestBench b = testBenches[benchIndex];
-        runRelocalizationTestBench(b);
-    }
+    parseArgs(argc, argv);
 
     return 0;
 }
