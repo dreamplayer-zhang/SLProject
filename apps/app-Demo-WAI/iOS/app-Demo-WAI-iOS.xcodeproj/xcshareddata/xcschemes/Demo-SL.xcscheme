@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "419BCD3614865C0800D576F1"
-               BuildableName = "Demo-SL.app"
+               BuildableName = "Demo-WAI.app"
                BlueprintName = "Demo-SL"
-               ReferencedContainer = "container:app-Demo-SLProject-iOS.xcodeproj">
+               ReferencedContainer = "container:app-Demo-WAI-iOS.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "419BCD3614865C0800D576F1"
-            BuildableName = "Demo-SL.app"
+            BuildableName = "Demo-WAI.app"
             BlueprintName = "Demo-SL"
-            ReferencedContainer = "container:app-Demo-SLProject-iOS.xcodeproj">
+            ReferencedContainer = "container:app-Demo-WAI-iOS.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -62,9 +62,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "419BCD3614865C0800D576F1"
-            BuildableName = "Demo-SL.app"
+            BuildableName = "Demo-WAI.app"
             BlueprintName = "Demo-SL"
-            ReferencedContainer = "container:app-Demo-SLProject-iOS.xcodeproj">
+            ReferencedContainer = "container:app-Demo-WAI-iOS.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

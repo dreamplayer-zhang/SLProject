@@ -9,8 +9,6 @@
 #import "AppDelegate.h"
 #import "ViewController.h"
 
-#include <SLInterface.h>
-
 @implementation AppDelegate
 
 @synthesize window = _window;
@@ -61,7 +59,7 @@
     */
     
     printf("applicationDidEnterBackground\n");
-    slTerminate();
+    //slTerminate();
     exit(0);
     
 }
