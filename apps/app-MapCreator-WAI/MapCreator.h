@@ -8,6 +8,7 @@
 #include <WAISlam.h>
 #include <WAIMapStorage.h>
 #include <FeatureExtractorFactory.h>
+#include <fbow.h>
 
 #define WAI_DEBUG(...) Utils::log("[DEBUG]", __VA_ARGS__)
 #define WAI_INFO(...) Utils::log("[INFO ]", __VA_ARGS__)
@@ -26,13 +27,13 @@ class MapCreator
         std::string videoFile;
         //std::string calibFile;
         CVCalibration calibration = {CVCameraType::VIDEOFILE, ""};
-    };
+    } VideoAndCalib;
     typedef std::vector<VideoAndCalib> Videos;
     typedef struct AreaConfig
     {
         Videos      videos;
         std::string markerFile;
-    };
+    } AreaConfig;
     typedef std::map<Area, AreaConfig> Areas;
 
 public:
@@ -55,7 +56,7 @@ public:
 
     void thinOutNewWaiMap(const std::string& mapDir,
                           const std::string& inputMapFile,
-                          const std::string  outputMapFile,
+                          const std::string& outputMapFile,
                           CVCalibration&     calib,
                           const float        cullRedundantPerc,
                           ExtractorType      extractorType);
@@ -74,9 +75,11 @@ private:
     MapCreator() {}
     std::map<Location, Areas> _erlebAR;
     std::string               _erlebARDir;
-    std::string               _vocFile;
     std::string               _calibrationsDir;
     std::string               _outputDir;
+    fbow::Vocabulary          _voc;
+
+
 
     WAIMapPoint* _mpUL;
     WAIMapPoint* _mpUR;

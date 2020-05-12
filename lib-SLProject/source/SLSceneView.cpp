@@ -10,10 +10,7 @@
 
 #include <stdafx.h> // Must be the 1st include followed by  an empty line
 
-#ifdef SL_MEMLEAKDETECT    // set in SL.h for debug config only
-#    include <debug_new.h> // memory leak detector
-#endif
-
+#include <SLApplication.h>
 #include <SLAnimManager.h>
 #include <SLCamera.h>
 #include <SLLight.h>
@@ -61,13 +58,13 @@ SLSceneView::~SLSceneView()
 \param onSelectNodeMeshCallback Callback on node and mesh selection
 \param SLUiInterface Interface for the external Gui build function
 */
-void SLSceneView::init(SLstring       name,
-                       SLint          screenWidth,
-                       SLint          screenHeight,
-                       void*          onWndUpdateCallback,
-                       void*          onSelectNodeMeshCallback,
-                       SLUiInterface* gui,
-                       std::string    configPath)
+void SLSceneView::init(SLstring           name,
+                       SLint              screenWidth,
+                       SLint              screenHeight,
+                       void*              onWndUpdateCallback,
+                       void*              onSelectNodeMeshCallback,
+                       SLUiInterface*     gui,
+                       const std::string& configPath)
 {
     _gui        = gui;
     _name       = std::move(name);
@@ -107,15 +104,12 @@ void SLSceneView::init(SLstring       name,
     _scrWdiv2 = _scrW >> 1;
     _scrHdiv2 = _scrH >> 1;
     _scrWdivH = (SLfloat)_scrW / (SLfloat)_scrH;
+    _scr2fbX  = 1.0f;
+    _scr2fbY  = 1.0f;
 
     _renderType = RT_gl;
 
     _skybox = nullptr;
-
-    // Reset timing variables
-    _cullTimesMS.init(60, 0.0f);
-    _draw3DTimesMS.init(60, 0.0f);
-    _draw2DTimesMS.init(60, 0.0f);
 
     if (_gui)
         _gui->init(configPath);
@@ -294,8 +288,12 @@ void SLSceneView::setViewportFromRatio(const SLVec2i&  vpRatio,
     {
         _viewportRect.set(0, 0, _scrW, _scrH);
         _viewportAlign = VA_center;
+        //todo: when this call comes, scr2fb are maybe not updated yet (I initialized them with 1.0)
         if (_gui)
-            _gui->onResize(_viewportRect.width, _viewportRect.height);
+            _gui->onResize(_viewportRect.width,
+                           _viewportRect.height,
+                           _scr2fbX,
+                           _scr2fbY);
         return;
     }
 
@@ -339,7 +337,10 @@ void SLSceneView::setViewportFromRatio(const SLVec2i&  vpRatio,
     {
         _viewportRect = vpRect;
         if (_gui)
-            _gui->onResize(_viewportRect.width, _viewportRect.height);
+            _gui->onResize(_viewportRect.width,
+                           _viewportRect.height,
+                           _scr2fbX,
+                           _scr2fbY);
     }
     else
         SL_EXIT_MSG("SLSceneView::viewport: Viewport is bigger than the screen!");
@@ -363,6 +364,7 @@ void SLSceneView::onInitialize()
 
     _nodesBlended.clear();
     _nodesVisible.clear();
+    _nodesOverdrawn.clear();
     _nodesVisible2D.clear();
     _stats2D.clear();
     _stats3D.clear();
@@ -370,6 +372,11 @@ void SLSceneView::onInitialize()
     _raytracer.clearData();
     _renderType   = RT_gl;
     _isFirstFrame = true;
+
+#ifdef SL_HAS_OPTIX
+    _optixRaytracer.setupOptix();
+    _optixPathtracer.setupOptix();
+#endif
 
     // init 3D scene with initial depth 1
     if (_s && _s->root3D() && _s->root3D()->aabb()->radiusOS() < 0.0001f)
@@ -404,11 +411,19 @@ void SLSceneView::onInitialize()
         _s->root2D()->statsRec(_stats2D);
     }
 
+    // Reset timing variables
+    _cullTimeMS   = 0.0f;
+    _draw3DTimeMS = 0.0f;
+    _draw2DTimeMS = 0.0f;
+    _cullTimesMS.init(60, 0.0f);
+    _draw3DTimesMS.init(60, 0.0f);
+    _draw2DTimesMS.init(60, 0.0f);
+
     initSceneViewCamera();
 
     // init conetracer if possible:
-#if defined(GL_VERSION_4_4)
-    //if (gl3wIsSupported("GL_ARB_clear_texture GL_ARB_shader_image_load_store GL_ARB_texture_storage"))
+#ifdef GL_VERSION_4_4
+    if (gl3wIsSupported(4, 4))
     {
         // The world's bounding box should not change during runtime.
         if (_s && _s->root3D())
@@ -417,7 +432,10 @@ void SLSceneView::onInitialize()
 #endif
 
     if (_gui)
-        _gui->onResize(_viewportRect.width, _viewportRect.height);
+        _gui->onResize(_viewportRect.width,
+                       _viewportRect.height,
+                       1.0f,
+                       1.0f);
 }
 //-----------------------------------------------------------------------------
 /*!
@@ -508,9 +526,14 @@ SLbool SLSceneView::onPaint()
         switch (_renderType)
         {
             case RT_gl: camUpdated = draw3DGL(_s->elapsedTimeMS()); break;
-            case RT_ct: camUpdated = draw3DCT(); break;
             case RT_rt: camUpdated = draw3DRT(); break;
             case RT_pt: camUpdated = draw3DPT(); break;
+            case RT_ct: camUpdated = draw3DCT(); break;
+
+#ifdef SL_HAS_OPTIX
+            case RT_optix_rt: camUpdated = draw3DOptixRT(); break;
+            case RT_optix_pt: camUpdated = draw3DOptixPT(); break;
+#endif
         }
     }
 
@@ -662,6 +685,7 @@ SLbool SLSceneView::draw3DGL(SLfloat elapsedTimeMS)
     _camera->setFrustumPlanes();
     _nodesBlended.clear();
     _nodesVisible.clear();
+    _nodesOverdrawn.clear();
     if (_s->root3D())
         _s->root3D()->cull3DRec(this);
     _cullTimeMS = GlobalTimer::timeMS() - startMS;
@@ -729,6 +753,7 @@ void SLSceneView::draw3DGLAll()
     // 3) Draw helper
     draw3DGLLinesOverlay(_nodesVisible);
     draw3DGLLinesOverlay(_nodesBlended);
+    draw3DGLLinesOverlay(_nodesOverdrawn);
 
     // 4) Draw visualization lines of animation curves
     _s->animManager().drawVisuals(this);
@@ -767,7 +792,7 @@ void SLSceneView::draw3DGLNodes(SLVNode& nodes,
     }
 
     // draw the shapes directly with their wm transform
-    for (auto node : nodes)
+    for (auto* node : nodes)
     {
         // Set the view transform
         stateGL->modelViewMatrix.setMatrix(stateGL->viewMatrix);
@@ -803,7 +828,7 @@ void SLSceneView::draw3DGLLines(SLVNode& nodes)
     stateGL->modelViewMatrix.setMatrix(stateGL->viewMatrix);
 
     // draw the opaque shapes directly w. their wm transform
-    for (auto node : nodes)
+    for (auto* node : nodes)
     {
         if (node != _camera)
         {
@@ -841,9 +866,8 @@ as overlayed
 */
 void SLSceneView::draw3DGLLinesOverlay(SLVNode& nodes)
 {
-
     // draw the opaque shapes directly w. their wm transform
-    for (auto node : nodes)
+    for (auto* node : nodes)
     {
         if (node != _camera)
         {
@@ -862,7 +886,9 @@ void SLSceneView::draw3DGLLinesOverlay(SLVNode& nodes)
                 if (drawBit(SL_DB_AXIS) ||
                     node->drawBit(SL_DB_AXIS) ||
                     node->drawBit(SL_DB_SELECTED))
+                {
                     node->aabb()->drawAxisWS();
+                }
 
                 // Draw skeleton
                 if (drawBit(SL_DB_SKELETON) ||
@@ -894,6 +920,28 @@ void SLSceneView::draw3DGLLinesOverlay(SLVNode& nodes)
                     }
                 }
             }
+            else if (node->drawBit(SL_DB_OVERDRAW))
+            {
+                // For blended nodes we activate OpenGL blending and stop depth buffer updates
+                SLGLState* stateGL = SLGLState::instance();
+                //stateGL->blend(true);
+                stateGL->depthMask(false); // Freeze depth buffer for blending
+                stateGL->depthTest(false); // Turn of depth test for overlay
+
+                stateGL->blend(node->aabb()->hasAlpha());
+                //stateGL->depthMask(!node->aabb()->hasAlpha());
+
+                // Set the view transform
+                stateGL->modelViewMatrix.setMatrix(stateGL->viewMatrix);
+
+                // Apply world transform
+                stateGL->modelViewMatrix.multiply(node->updateAndGetWM().m());
+
+                // Finally the nodes meshes
+                node->drawMeshes(this);
+
+                GET_GL_ERROR; // Check if any OGL errors occurred
+            }
         }
     }
 
@@ -919,7 +967,10 @@ void SLSceneView::draw2DGL()
         {
             // 1. Set Projection & View
             stateGL->projectionMatrix.ortho(-w2, w2, -h2, h2, 1.0f, -1.0f);
-            stateGL->viewport(0, 0, _scrW, _scrH);
+            stateGL->viewport(0,
+                              0,
+                              (int)(_scrW * _scr2fbX),
+                              (int)(_scrH * _scr2fbY));
 
             // 2. Pseudo 2D Frustum Culling
             _nodesVisible2D.clear();
@@ -935,7 +986,7 @@ void SLSceneView::draw2DGL()
         not empty the SLScene::selectedNode is null. All vertices that are within the
         selectRect are listed in SLMesh::IS32. The selection evaluation is done during
         drawing in SLMesh::draw and is only valid for the current frame.
-        All nodes that have selected vertice have their drawbit SL_DB_SELECTED set. */
+        All nodes that have selected vertices have their drawbit SL_DB_SELECTED set. */
 
             if (!_camera->selectedRect().isEmpty())
             {
@@ -986,7 +1037,7 @@ void SLSceneView::draw2DGLNodes()
 
     // Draw all 2D nodes blended (mostly text font textures)
     // draw the shapes directly with their wm transform
-    for (auto node : _nodesVisible2D)
+    for (auto* node : _nodesVisible2D)
     {
         // Apply world transform
         stateGL->modelViewMatrix.multiply(node->updateAndGetWM().m());
@@ -1099,11 +1150,20 @@ SLbool SLSceneView::onMouseDown(SLMouseButton button,
     SLbool result = false;
     if (_s && _camera && _s->root3D())
     {
-        result = _camera->onMouseDown(button, x, y, mod);
-        for (auto eh : _s->eventHandlers())
+        SLbool eventConsumed = false;
+        for (auto* eh : _s->eventHandlers())
         {
             if (eh->onMouseDown(button, x, y, mod))
-                result = true;
+                eventConsumed = true;
+        }
+
+        if (!eventConsumed)
+        {
+            result = _camera->onMouseDown(button, x, y, mod);
+        }
+        else
+        {
+            result = true;
         }
     }
 
@@ -1153,12 +1213,23 @@ SLbool SLSceneView::onMouseUp(SLMouseButton button,
 
     if (_s && _camera && _s->root3D())
     {
-        SLbool result = _camera->onMouseUp(button, x, y, mod);
-        for (auto eh : _s->eventHandlers())
+        SLbool result        = false;
+        SLbool eventConsumed = false;
+        for (auto* eh : _s->eventHandlers())
         {
             if (eh->onMouseUp(button, x, y, mod))
-                result = true;
+                eventConsumed = true;
         }
+
+        if (!eventConsumed)
+        {
+            result = _camera->onMouseUp(button, x, y, mod);
+        }
+        else
+        {
+            result = true;
+        }
+
         return result;
     }
 
@@ -1189,21 +1260,26 @@ SLbool SLSceneView::onMouseMove(SLint scrX, SLint scrY)
     _touchDowns   = 0;
     SLbool result = false;
 
+    SLMouseButton btn;
+    if (_mouseDownL)
+        btn = MB_left;
+    else if (_mouseDownR)
+        btn = MB_right;
+    else if (_mouseDownM)
+        btn = MB_middle;
+    else
+        btn = MB_none;
+
     if (_mouseDownL || _mouseDownR || _mouseDownM)
     {
-        SLMouseButton btn = _mouseDownL
-                              ? MB_left
-                              : _mouseDownR ? MB_right : MB_middle;
-
         // Handle move in ray tracing
         if (_renderType == RT_rt && !_raytracer.doContinuous())
         {
             if (_raytracer.state() == rtFinished)
                 _raytracer.state(rtMoveGL);
             else
-            {
                 _raytracer.doContinuous(false);
-            }
+
             _renderType = RT_gl;
         }
 
@@ -1212,17 +1288,23 @@ SLbool SLSceneView::onMouseMove(SLint scrX, SLint scrY)
         {
             if (_pathtracer.state() == rtFinished)
                 _pathtracer.state(rtMoveGL);
+
             _renderType = RT_gl;
         }
-
-        result = _camera->onMouseMove(btn, x, y, _mouseMod);
-
-        for (auto eh : _s->eventHandlers())
-        {
-            if (eh->onMouseMove(btn, x, y, _mouseMod))
-                result = true;
-        }
     }
+
+    SLbool eventConsumed = false;
+    for (auto* eh : _s->eventHandlers())
+    {
+        if (eh->onMouseMove(btn, x, y, _mouseMod))
+            eventConsumed = true;
+    }
+
+    if (!eventConsumed)
+        result = _camera->onMouseMove(btn, x, y, _mouseMod);
+    else
+        result = true;
+
     return result;
 }
 //-----------------------------------------------------------------------------
@@ -1262,9 +1344,13 @@ SLbool SLSceneView::onMouseWheel(SLint delta, SLKey mod)
         _raytracer.state() == rtFinished)
         _raytracer.state(rtReady);
 
+    // Handle mouse wheel in PT mode
+    if (_renderType == RT_pt && _pathtracer.state() == rtFinished)
+        _pathtracer.state(rtReady);
+
     SLbool result = _camera->onMouseWheel(delta, mod);
 
-    for (auto eh : _s->eventHandlers())
+    for (auto* eh : _s->eventHandlers())
     {
         if (eh->onMouseWheel(delta, mod))
             result = true;
@@ -1285,7 +1371,7 @@ SLbool SLSceneView::onDoubleClick(SLMouseButton button,
         return false;
 
     // Correct viewport offset
-    // mouse corrds are top-left, viewport is bottom-left)
+    // mouse coordinates are top-left, viewport is bottom-left)
     SLint x = scrX - _viewportRect.x;
     SLint y = scrY - ((_scrH - _viewportRect.height) - _viewportRect.y);
 
@@ -1317,7 +1403,7 @@ SLbool SLSceneView::onDoubleClick(SLMouseButton button,
     else
     {
         result = _camera->onDoubleClick(button, x, y, mod);
-        for (auto eh : _s->eventHandlers())
+        for (auto* eh : _s->eventHandlers())
         {
             if (eh->onDoubleClick(button, x, y, mod))
                 result = true;
@@ -1334,7 +1420,7 @@ SLbool SLSceneView::onLongTouch(SLint scrX, SLint scrY)
     //SL_LOG("onLongTouch(%d, %d)", x, y);
 
     // Correct viewport offset
-    // mouse corrds are top-left, viewport is bottom-left)
+    // mouse coordinates are top-left, viewport is bottom-left)
     SLint x = scrX - _viewportRect.x;
     SLint y = scrY - ((_scrH - _viewportRect.height) - _viewportRect.y);
 
@@ -1351,7 +1437,7 @@ SLbool SLSceneView::onTouch2Down(SLint scrX1, SLint scrY1, SLint scrX2, SLint sc
         return false;
 
     // Correct viewport offset
-    // mouse corrds are top-left, viewport is bottom-left)
+    // mouse coordinates are top-left, viewport is bottom-left)
     SLint x1 = scrX1 - _viewportRect.x;
     SLint y1 = scrY1 - ((_scrH - _viewportRect.height) - _viewportRect.y);
     SLint x2 = scrX2 - _viewportRect.x;
@@ -1363,7 +1449,7 @@ SLbool SLSceneView::onTouch2Down(SLint scrX1, SLint scrY1, SLint scrX2, SLint sc
 
     SLbool result = _camera->onTouch2Down(x1, y1, x2, y2);
 
-    for (auto eh : _s->eventHandlers())
+    for (auto* eh : _s->eventHandlers())
     {
         if (eh->onTouch2Down(x1, y1, x2, y2))
             result = true;
@@ -1393,7 +1479,7 @@ SLbool SLSceneView::onTouch2Move(SLint scrX1, SLint scrY1, SLint scrX2, SLint sc
     if (_touchDowns == 2)
     {
         result = _camera->onTouch2Move(x1, y1, x2, y2);
-        for (auto eh : _s->eventHandlers())
+        for (auto* eh : _s->eventHandlers())
         {
             if (eh->onTouch2Move(x1, y1, x2, y2))
                 result = true;
@@ -1422,7 +1508,7 @@ SLbool SLSceneView::onTouch2Up(SLint scrX1, SLint scrY1, SLint scrX2, SLint scrY
     _touchDowns = 0;
 
     SLbool result = _camera->onTouch2Up(x1, y1, x2, y2);
-    for (auto eh : _s->eventHandlers())
+    for (auto* eh : _s->eventHandlers())
     {
         if (eh->onTouch2Up(x1, y1, x2, y2))
             result = true;
@@ -1501,7 +1587,7 @@ SLbool SLSceneView::onKeyPress(SLKey key, SLKey mod)
         result = _camera->onKeyPress(key, mod);
 
         // 2) pass it to any other eventhandler
-        for (auto eh : _s->eventHandlers())
+        for (auto* eh : _s->eventHandlers())
         {
             if (eh->onKeyPress(key, mod))
                 result = true;
@@ -1536,7 +1622,7 @@ SLbool SLSceneView::onKeyRelease(SLKey key, SLKey mod)
         result = _camera->onKeyRelease(key, mod);
 
         // 2) pass it to any other eventhandler
-        for (auto eh : _s->eventHandlers())
+        for (auto* eh : _s->eventHandlers())
         {
             if (eh->onKeyRelease(key, mod))
                 result = true;
@@ -1582,18 +1668,16 @@ SLstring SLSceneView::windowTitle()
         else
         {
             sprintf(title,
-                    "%s (%d%%, Threads: %d)",
+                    "%s (Threads: %d)",
                     _s->name().c_str(),
-                    _raytracer.pcRendered(),
                     _raytracer.numThreads());
         }
     }
     else if (_renderType == RT_pt)
     {
         sprintf(title,
-                "%s (%d%%, Threads: %d)",
+                "%s (Threads: %d)",
                 _s->name().c_str(),
-                _pathtracer.pcRendered(),
                 _pathtracer.numThreads());
     }
     else
@@ -1625,7 +1709,6 @@ void SLSceneView::startRaytracing(SLint maxDepth)
     _renderType = RT_rt;
     _stopRT     = false;
     _raytracer.maxDepth(maxDepth);
-    _raytracer.aaSamples(_doMultiSampling && _dpi < 200 ? 3 : 1);
 }
 //-----------------------------------------------------------------------------
 /*!
@@ -1640,12 +1723,15 @@ SLbool SLSceneView::draw3DRT()
     // if the raytracer not yet got started
     if (_raytracer.state() == rtReady)
     {
-        // Update transforms and aabbs
-        // @Todo: causes multithreading bug in RT
-        //s->root3D()->needUpdate();
+        if (_s->root3D())
+        {
+            // Update transforms and AABBs
+            // @Todo: causes multithreading bug in RT
+            //s->root3D()->needUpdate();
 
-        // Do software skinning on all changed skeletons
-        _s->root3D()->updateMeshAccelStructs();
+            // Do software skinning on all changed skeletons
+            _s->root3D()->updateMeshAccelStructs();
+        }
 
         // Start raytracing
         if (_raytracer.doDistributed())
@@ -1690,12 +1776,15 @@ SLbool SLSceneView::draw3DPT()
     // if the pathtracer not yet got started
     if (_pathtracer.state() == rtReady)
     {
-        // Update transforms and AABBs
-        // @Todo: causes multithreading bug in RT
-        //s->root3D()->needUpdate();
+        if (_s->root3D())
+        {
+            // Update transforms and AABBs
+            // @Todo: causes multithreading bug in RT
+            //s->root3D()->needUpdate();
 
-        // Do software skinning on all changed skeletons
-        _s->root3D()->updateMeshAccelStructs();
+            // Do software skinning on all changed skeletons
+            _s->root3D()->updateMeshAccelStructs();
+        }
 
         // Start raytracing
         _pathtracer.render(this);
@@ -1713,6 +1802,82 @@ SLbool SLSceneView::draw3DPT()
 
     return updated;
 }
+//-----------------------------------------------------------------------------
+#ifdef SL_HAS_OPTIX
+void SLSceneView::startOptixRaytracing(SLint maxDepth)
+{
+    _renderType  = RT_optix_rt;
+    _stopOptixRT = false;
+    _optixRaytracer.maxDepth(maxDepth);
+    _optixRaytracer.setupScene(this);
+}
+//-----------------------------------------------------------------------------
+SLbool SLSceneView::draw3DOptixRT()
+{
+    SLbool updated = false;
+
+    // if the raytracer not yet got started
+    if (_optixRaytracer.state() == rtReady)
+    {
+        s().root3D()->needUpdate();
+
+        _optixRaytracer.updateScene(this);
+
+        if (_optixRaytracer.doDistributed())
+            _optixRaytracer.renderDistrib();
+        else
+            _optixRaytracer.renderClassic();
+    }
+
+    // Refresh the render image during RT
+    _optixRaytracer.renderImage();
+
+    // React on the stop flag (e.g. ESC)
+    if (_stopOptixRT)
+    {
+        _renderType = RT_gl;
+        updated     = true;
+    }
+
+    return updated;
+}
+//-----------------------------------------------------------------------------
+void SLSceneView::startOptixPathtracing(SLint maxDepth, SLint samples)
+{
+    _renderType  = RT_optix_pt;
+    _stopOptixPT = false;
+    _optixPathtracer.maxDepth(maxDepth);
+    _optixPathtracer.samples(samples);
+    _optixPathtracer.setupScene(this);
+}
+//-----------------------------------------------------------------------------
+SLbool SLSceneView::draw3DOptixPT()
+{
+    SLbool updated = false;
+
+    // if the path tracer not yet got started
+    if (_optixPathtracer.state() == rtReady)
+    {
+        s().root3D()->needUpdate();
+
+        // Start path tracing
+        _optixPathtracer.updateScene(this);
+        _optixPathtracer.render();
+    }
+
+    // Refresh the render image during RT
+    _optixPathtracer.renderImage();
+
+    // React on the stop flag (e.g. ESC)
+    if (_stopOptixPT)
+    {
+        _renderType = RT_gl;
+        updated     = true;
+    }
+
+    return updated;
+}
+#endif
 //-----------------------------------------------------------------------------
 /*!
 Starts the voxel cone tracing

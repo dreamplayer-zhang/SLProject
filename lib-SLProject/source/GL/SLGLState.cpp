@@ -14,7 +14,9 @@
 #include <SLGLState.h>
 #include <SLMaterial.h>
 #include <CVImage.h>
-
+#ifdef SL_OS_ANDROID
+#    include <android/log.h>
+#endif
 //-----------------------------------------------------------------------------
 SLGLState* SLGLState::_instance = nullptr;
 //-----------------------------------------------------------------------------
@@ -150,6 +152,8 @@ void SLGLState::initAll()
 #ifdef _GLDEBUG
     GET_GL_ERROR;
 #endif
+
+    _currentMaterial = nullptr;
 }
 //-----------------------------------------------------------------------------
 /*! The destructor only empties the stacks
@@ -254,7 +258,11 @@ void SLGLState::calcLightDirVS(SLint nLights)
  */
 const SLCol4f* SLGLState::globalAmbient()
 {
-    _globalAmbient.set(globalAmbientLight & SLMaterial::current->ambient());
+    if (_currentMaterial)
+        _globalAmbient.set(globalAmbientLight & _currentMaterial->ambient());
+    else
+        _globalAmbient.set(globalAmbientLight);
+
     return &_globalAmbient;
 }
 //-----------------------------------------------------------------------------
@@ -596,6 +604,7 @@ void SLGLState::getGLError(const char* file,
         if (!errExists)
         {
             errors.push_back(newErr);
+
 #    ifdef SL_OS_ANDROID
             __android_log_print(ANDROID_LOG_INFO, "SLProject", "OpenGL Error in %s, line %d: %s\n", file, line, errStr.c_str());
 #    else
@@ -605,14 +614,11 @@ void SLGLState::getGLError(const char* file,
                     line,
                     errStr.c_str());
 #    endif
+            //todo: why not use: SL_LOG("OpenGL Error in %s, line %d: %s\n", file, line, errStr.c_str());
         }
 
         if (quit)
         {
-#    ifdef SL_MEMLEAKDETECT // set in SL.h for debug config only \
-                            // turn off leak checks on forced exit \
-                            //new_autocheck_flag = false;
-#    endif
             exit(1);
         }
     }

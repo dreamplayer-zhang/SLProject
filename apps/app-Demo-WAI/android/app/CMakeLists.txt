@@ -48,6 +48,7 @@ target_link_libraries(${target}
         camera2ndk
         mediandk
         lib-WAI
+        lib-fbow
         lib-SLProject
 
     PUBLIC
@@ -68,6 +69,10 @@ file(GLOB_RECURSE TEXTURES
 	${SL_PROJECT_ROOT}/data/images/textures/logo_admin_ch.png
 	${SL_PROJECT_ROOT}/data/images/textures/logo_bfh.png
 	${SL_PROJECT_ROOT}/data/images/textures/earth2048_C.jpg
+	${SL_PROJECT_ROOT}/data/images/textures/earthCloud1024_C.jpg
+	${SL_PROJECT_ROOT}/data/images/textures/icon_back.png
+    ${SL_PROJECT_ROOT}/data/images/textures/back1white.png
+    ${SL_PROJECT_ROOT}/data/images/textures/left1white.png
     )
 
 file(GLOB_RECURSE VIDEOS
@@ -95,9 +100,17 @@ file(GLOB_RECURSE CALIBRATIONS
     ${SL_PROJECT_ROOT}/data/calibrations/cam_calibration_main.xml
     )
 
+set(CONFIG
+	${SL_PROJECT_ROOT}/data/config/StringsEnglish.json
+    ${SL_PROJECT_ROOT}/data/config/StringsFrench.json
+    ${SL_PROJECT_ROOT}/data/config/StringsGerman.json
+    ${SL_PROJECT_ROOT}/data/config/StringsItalian.json
+    )
+
 file(GLOB_RECURSE VOC
-	${SL_PROJECT_ROOT}/data/calibrations/ORBvoc.bin
-	)
+    #${SL_PROJECT_ROOT}/data/calibrations/ORBvoc.bin
+    ${SL_PROJECT_ROOT}/data/calibrations/voc_fbow.bin
+    )
 
 set(APK_ASSETS
     ${CMAKE_CURRENT_LIST_DIR}/src/main/assets)

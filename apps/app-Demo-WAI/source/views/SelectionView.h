@@ -6,6 +6,7 @@
 #include <SLSceneView.h>
 #include <ErlebAR.h>
 #include <sm/EventSender.h>
+#include <Resources.h>
 
 class SLInputManager;
 
@@ -15,6 +16,7 @@ class SelectionView : public sm::EventSender
 public:
     SelectionView(sm::EventHandler&   eventHandler,
                   SLInputManager&     inputManager,
+                  const ImGuiEngine&  imGuiEngine,
                   ErlebAR::Resources& resources,
                   int                 screenWidth,
                   int                 screenHeight,

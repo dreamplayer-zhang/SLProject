@@ -24,7 +24,7 @@ static vector<string> errors; // global vector for errors used in getGLError
 void glUtils::printGLInfo()
 {
     cout << "OpenGL Version  : " << glGetString(GL_VERSION) << endl;
-    cout << "GLSL Version    : " << glGetString(GL_SHADING_LANGUAGE_VERSION) << endl;
+    cout << "OpenGL GLSL Ver.: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << endl;
     cout << "OpenGL Renderer : " << glGetString(GL_RENDERER) << endl;
     cout << "OpenGL Vendor   : " << glGetString(GL_VENDOR) << endl;
 
@@ -533,10 +533,6 @@ void glUtils::getGLError(const char* file,
 
         if (quit)
         {
-#    ifdef SL_MEMLEAKDETECT // set in SL.h for debug config only
-// turn off leak checks on forced exit
-//new_autocheck_flag = false;
-#    endif
             exit(1);
         }
     }

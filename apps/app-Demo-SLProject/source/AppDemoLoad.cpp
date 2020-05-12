@@ -10,10 +10,6 @@
 
 #include <stdafx.h> // Must be the 1st include followed by  an empty line
 
-#ifdef SL_MEMLEAKDETECT    // set in SL.h for debug config only
-#    include <debug_new.h> // memory leak detector
-#endif
-
 #include <GlobalTimer.h>
 
 #include <CVCapture.h>
@@ -44,6 +40,7 @@
 #include <SLSphere.h>
 #include <SLText.h>
 #include <SLTransferFunction.h>
+#include <SLLine.h>
 #include <SLProjectScene.h>
 #include <SLGLProgramManager.h>
 
@@ -59,19 +56,19 @@ extern SLNode*      trackedNode;
 
 //-----------------------------------------------------------------------------
 // Forward declarations for helper functions used only in this file
-SLNode*     SphereGroup(SLProjectScene* s,
-                        SLint,
-                        SLfloat,
-                        SLfloat,
-                        SLfloat,
-                        SLfloat,
-                        SLuint,
-                        SLMaterial*,
-                        SLMaterial*);
-SLNode*     BuildFigureGroup(SLProjectScene* s,
-                             SLMaterial*     mat,
-                             SLbool          withAnimation = false);
-std::string findModelFileName(std::string file);
+SLNode* SphereGroup(SLProjectScene* s,
+                    SLint,
+                    SLfloat,
+                    SLfloat,
+                    SLfloat,
+                    SLfloat,
+                    SLuint,
+                    SLMaterial*,
+                    SLMaterial*);
+SLNode* BuildFigureGroup(SLProjectScene* s,
+                         SLMaterial*     mat,
+                         SLbool          withAnimation = false);
+string  findModelFileName(std::string file);
 
 //-----------------------------------------------------------------------------
 //! appDemoLoadScene builds a scene from source code.
@@ -97,8 +94,9 @@ void appDemoLoadScene(SLProjectScene* s, SLSceneView* sv, SLSceneID sceneID)
     SLApplication::sceneID = sceneID;
 
     // reset existing sceneviews
-    for (auto sv : SLApplication::sceneViews)
+    for (auto* sv : SLApplication::sceneViews)
         sv->unInit();
+
     // Initialize all preloaded stuff from SLScene
     s->init();
 
@@ -140,9 +138,6 @@ void appDemoLoadScene(SLProjectScene* s, SLSceneView* sv, SLSceneID sceneID)
         SLMesh* rectMesh = new SLRectangle(s, SLVec2f(-5, -5), SLVec2f(5, 5), 1, 1, "rectangle mesh", m1);
         SLNode* rectNode = new SLNode(rectMesh, "rectangle node");
         scene->addChild(rectNode);
-
-        SLNode* axisNode = new SLNode(new SLCoordAxis(s), "axis node");
-        scene->addChild(axisNode);
 
         // Set background color and the root scene node
         sv->sceneViewCamera()->background().colors(SLCol4f(0.7f, 0.7f, 0.7f), SLCol4f(0.2f, 0.2f, 0.2f));
@@ -1906,7 +1901,6 @@ void appDemoLoadScene(SLProjectScene* s, SLSceneView* sv, SLSceneID sceneID)
         light2->attenuation(1, 0, 0);
         light2->translate(-8, -4, 0, TS_world);
         light2->setInitialState();
-
         SLAnimation*     light2Anim = s->animManager().createNodeAnimation("light2_anim", 2.0f, true, EC_linear, AL_pingPongLoop);
         SLNodeAnimTrack* track      = light2Anim->createNodeAnimationTrack();
         track->animatedNode(light2);
@@ -2983,7 +2977,7 @@ void appDemoLoadScene(SLProjectScene* s, SLSceneView* sv, SLSceneID sceneID)
         scene->addChild(boxNode1);
 
         // Create OpenCV Tracker for the box node
-        tracker = new CVTrackedWAI(Utils::findFile("ORBvoc.bin", {SLApplication::calibIniPath, SLApplication::exePath}));
+        tracker = new CVTrackedWAI(Utils::findFile("voc_fbow.bin", {SLApplication::calibIniPath, SLApplication::exePath}));
         tracker->drawDetection(true);
         trackedNode = cam1;
 
@@ -2999,7 +2993,7 @@ void appDemoLoadScene(SLProjectScene* s, SLSceneView* sv, SLSceneID sceneID)
 #endif
     else if (SLApplication::sceneID == SID_RTMuttenzerBox) //............................................
     {
-        s->name("Muttenzer Box (RT)");
+        s->name("Muttenzer Box");
         s->info("Muttenzer Box with environment mapped reflective sphere and transparenz refractive glass sphere. Try ray tracing for real reflections and soft shadows.");
 
         // Create reflection & glass shaders
@@ -3099,6 +3093,11 @@ void appDemoLoadScene(SLProjectScene* s, SLSceneView* sv, SLSceneID sceneID)
         SLNode* f = new SLNode(new SLRectangle(s, SLVec2f(pL, pB), SLVec2f(pR, pT), 6, 6, "far", cream));
         f->translate(0, 0, pF, TS_object);
         scene->addChild(f);
+
+        //        // near plane
+        //        SLNode* n = new SLNode(new SLRectangle(SLVec2f(pL, pT), SLVec2f(pR, pB), 6, 6, "near", cream));
+        //        n->translate(0, 0, pN, TS_object);
+        //        scene->addChild(n);
 
         // left plane
         SLNode* l = new SLNode(new SLRectangle(s, SLVec2f(-pN, pB), SLVec2f(-pF, pT), 6, 6, "left", red));
@@ -3409,7 +3408,7 @@ void appDemoLoadScene(SLProjectScene* s, SLSceneView* sv, SLSceneID sceneID)
 
     ////////////////////////////////////////////////////////////////////////////
     // call onInitialize on all scene views to init the scenegraph and stats
-    for (auto sceneView : SLApplication::sceneViews)
+    for (auto* sceneView : SLApplication::sceneViews)
         if (sceneView != nullptr)
             sceneView->onInitialize();
 

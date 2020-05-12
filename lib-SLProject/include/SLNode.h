@@ -25,7 +25,7 @@ class SLAnimation;
 
 //-----------------------------------------------------------------------------
 //! SLVNode typdef for a vector of SLNodes
-typedef std::vector<SLNode*> SLVNode;
+typedef vector<SLNode*> SLVNode;
 //-----------------------------------------------------------------------------
 //! Struct for scene graph statistics
 /*! The SLNodeStats struct holds some statistics that are set in the recursive
@@ -131,6 +131,9 @@ SLNode.
 class SLNode
   : public SLObject
   , public SLEventHandler
+#ifdef SL_HAS_OPTIX
+  , public SLOptixAccelStruct
+#endif
 {
     friend class SLSceneView;
 
@@ -150,6 +153,8 @@ public:
     virtual void      dumpRec();
     void              setDrawBitsRec(SLuint bit, SLbool state);
     void              setPrimitiveTypeRec(SLGLPrimitiveType primitiveType);
+    void              createInstanceAccelerationStructureTree();
+    void              createInstanceAccelerationStructureFlat();
 
     // Mesh methods (see impl. for details)
     SLint        numMeshes() { return (SLint)_meshes.size(); }
@@ -158,7 +163,7 @@ public:
     void         removeMeshes() { _meshes.clear(); }
     bool         removeMesh();
     bool         removeMesh(SLMesh* mesh);
-    bool         removeMesh(SLstring name);
+    bool         removeMesh(const SLstring& name);
     SLMesh*      findMesh(const SLstring& name,
                           SLbool          recursive = false);
     void         setAllMeshMaterials(SLMaterial* mat,
@@ -285,15 +290,15 @@ public:
     SLVMesh&          meshes() { return _meshes; }
     SLVNode&          children() { return _children; }
     const SLSkeleton* skeleton();
-    //CVTracked*      tracker() { return _tracker; }
-    void         update();
-    virtual void doUpdate() {}
-    //update all meshes recursively: Do software skinning on all changed skeletons && update any out of date acceleration structure for RT or if they're being rendered.
-    bool updateMeshSkins(std::function<void(SLMesh*)> cbInformNodes);
-    void updateMeshAccelStructs();
+    void              updateRec();
+    virtual void      doUpdate() {}
+    bool              updateMeshSkins(const std::function<void(SLMesh*)>& cbInformNodes);
+    void              updateMeshAccelStructs();
 
     static SLuint numWMUpdates; //!< NO. of calls to updateWM per frame
 
+    static unsigned int instanceIndex; //!< ???
+	
 private:
     void updateWM() const;
     template<typename T>
@@ -307,6 +312,9 @@ private:
     void findChildrenHelper(SLuint           drawbit,
                             vector<SLNode*>& list,
                             SLbool           findRecursive);
+#ifdef SL_HAS_OPTIX
+    void createOptixInstances(vector<OptixInstance>&);
+#endif
 
 protected:
     SLNode*         _parent;         //!< pointer to the parent node
@@ -323,7 +331,6 @@ protected:
     SLDrawBits      _drawBits;       //!< node level drawing flags
     SLAABBox        _aabb;           //!< axis aligned bounding box
     SLAnimation*    _animation;      //!< animation of the node
-    //CVTracked*    _tracker;        //!< OpenCV Augmented Reality Tracker
 };
 
 ////////////////////////
@@ -460,7 +467,7 @@ SLNode::upOS() const
 }
 //-----------------------------------------------------------------------------
 /*!
-SLNode::position returns current local position
+SLNode::position returns current world position
 */
 inline SLVec3f
 SLNode::translationWS() const

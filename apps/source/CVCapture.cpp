@@ -40,7 +40,7 @@ CVCapture::CVCapture()
     videoDefaultPath   = "../data/videos/";
     videoFilename      = "";
     videoLoops         = true;
-    fps                = 1.0f;
+    fps                = 1;
     frameCount         = 0;
     activeCamSizeIndex = -1;
     activeCamera       = nullptr;
@@ -140,6 +140,7 @@ CVSize2i CVCapture::openFile()
     catch (exception& e)
     {
         Utils::log("SLProject", "CVCapture::openFile: Exception during OpenCV video capture creation with video file: %s", e.what());
+
     }
     return CVSize2i(0, 0);
 }
@@ -243,14 +244,14 @@ app-Demo-SLProject/android projects for the usage.
 void CVCapture::loadIntoLastFrame(const float       viewportWdivH,
                                   const int         width,
                                   const int         height,
-                                  const CVPixFormat format,
+                                  const CVPixFormat newFormat,
                                   const uchar*      data,
                                   const bool        isContinuous)
 {
     CVCapture::startCaptureTimeMS = _timer.elapsedTimeInMilliSec();
 
     // treat Android YUV to RGB conversion special
-    if (format == PF_yuv_420_888)
+    if (newFormat == PF_yuv_420_888)
     {
         CVMat yuv(height + height / 2, width, CV_8UC1, (void*)data);
 
@@ -258,7 +259,7 @@ void CVCapture::loadIntoLastFrame(const float       viewportWdivH,
         cvtColor(yuv, CVCapture::lastFrame, cv::COLOR_YUV2RGB_NV21, 3);
     }
     // convert 4 channel images to 3 channel
-    else if (format == PF_bgra || format == PF_rgba)
+    else if (newFormat == PF_bgra || format == PF_rgba)
     {
         CVMat rgba(height, width, CV_8UC4, (void*)data);
         cvtColor(rgba, CVCapture::lastFrame, cv::COLOR_RGBA2RGB, 3);
@@ -268,7 +269,7 @@ void CVCapture::loadIntoLastFrame(const float       viewportWdivH,
         // Set the according OpenCV format
         int cvType = 0, bpp = 0;
 
-        switch (format)
+        switch (newFormat)
         {
             case PF_luminance: {
                 cvType = CV_8UC1;
@@ -827,7 +828,7 @@ void CVCapture::videoType(CVVideoType vt)
         if (vt == VT_NONE)
         {
             release();
-            _captureTimesMS.set(0.0f);
+            _captureTimesMS.init(60, 0.0f);
         }
     }
 }
@@ -916,9 +917,7 @@ void CVCapture::setCameraSize(int sizeIndex,
     camSizes[(uint)sizeIndex].height = height;
 }
 //-----------------------------------------------------------------------------
-/*
-Moves the current frame position in a video file.
-*/
+//! Moves the current frame position in a video file.
 void CVCapture::moveCapturePosition(int n)
 {
     if (_videoType != VT_FILE) return;
@@ -932,14 +931,13 @@ void CVCapture::moveCapturePosition(int n)
     _captureDevice.set(cv::CAP_PROP_POS_FRAMES, frameIndex);
 }
 //-----------------------------------------------------------------------------
+//! Returns the next frame index number
 int CVCapture::nextFrameIndex()
 {
     int result = 0;
 
     if (_videoType == VT_FILE)
-    {
         result = (int)_captureDevice.get(cv::CAP_PROP_POS_FRAMES);
-    }
 
     return result;
 }
@@ -949,9 +947,8 @@ int CVCapture::videoLength()
     int result = 0;
 
     if (_videoType == VT_FILE)
-    {
         result = (int)_captureDevice.get(cv::CAP_PROP_FRAME_COUNT);
-    }
 
     return result;
 }
+//------------------------------------------------------------------------------

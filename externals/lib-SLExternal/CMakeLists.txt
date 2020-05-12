@@ -17,6 +17,7 @@ set(headers
         ${include_path}/imgui/imconfig.h
         ${include_path}/imgui/imgui_internal.h
         ${include_path}/imgui/imgui.h
+        #${include_path}/imgui/imgui_user.h
         ${include_path}/imgui/imstb_rectpack.h
         ${include_path}/imgui/imstb_textedit.h
         ${include_path}/imgui/imstb_truetype.h
@@ -28,6 +29,7 @@ set(sources
         ${include_path}/Shoemake/Decompose.cpp
         ${include_path}/imgui/imgui_draw.cpp
         ${include_path}/imgui/imgui.cpp
+		${include_path}/imgui/imgui_user.cpp
         ${include_path}/imgui/imgui_widgets.cpp
         ${include_path}/imgui/imgui_demo.cpp
         ${include_path}/spa/spa.cpp
@@ -52,10 +54,13 @@ if("${SYSTEM_NAME_UPPER}" STREQUAL "LINUX")
 
     file(GLOB headers
             ${headers}
+            ${include_path}/gl3w/GL/gl3w.h
+            ${include_path}/gl3w/GL/glcorearb.h
             )
 
     file(GLOB sources
             ${sources}
+            ${source_path}/gl3w/GL/gl3w.c
             )
 
 elseif("${SYSTEM_NAME_UPPER}" STREQUAL "DARWIN") #-----------------------------

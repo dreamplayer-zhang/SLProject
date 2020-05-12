@@ -87,7 +87,7 @@ private:
     void terminateDisplay();
 
     void startCamera();
-    void stopCamera();
+
     void checkAndRequestAndroidPermissions();
 
     std::string getInternalDir();
@@ -117,8 +117,8 @@ private:
     int32_t  _pointersDown;
     uint64_t _lastTouchMS;
 
-    SENSNdkCamera* _ndkCamera     = nullptr;
-    bool           _cameraGranted = false;
+    SENSCameraAsync* _camera        = nullptr;
+    bool             _cameraGranted = false;
 
     /*
     SensorsHandler* sensorsHandler;
@@ -186,7 +186,7 @@ void Engine::onInit()
         //todo revert
         _earApp.setCloseAppCallback(std::bind(&Engine::closeAppCallback, this));
         //todo: _earApp.init
-        _earApp.init(_width, _height, 1.0, 1.0, _dpi, _dirs, _ndkCamera);
+        _earApp.init(_width, _height, _dpi, _dirs, _camera);
         _earAppIsInitialized = true;
     }
     else
@@ -198,7 +198,7 @@ void Engine::onInit()
             _earApp.destroy();
             terminateDisplay();
             initDisplay();
-            _earApp.init(_width, _height, 1.0, 1.0, _dpi, _dirs, _ndkCamera);
+            _earApp.init(_width, _height, _dpi, _dirs, _camera);
         }
         else
         {
@@ -363,8 +363,11 @@ void Engine::startCamera()
 {
     try
     {
-        if (!_ndkCamera)
-            _ndkCamera = new SENSNdkCamera();
+        if (!_camera)
+        {
+            std::unique_ptr<SENSNdkCamera> ndkCamera = std::make_unique<SENSNdkCamera>();
+            _camera = new SENSCameraAsync(std::move(ndkCamera));
+        }
     }
     catch (std::exception& e)
     {
@@ -374,60 +377,6 @@ void Engine::startCamera()
     if (!_cameraGranted)
     {
         checkAndRequestAndroidPermissions();
-    }
-    /*
-    if (_cameraGranted)
-    {
-        try
-        {
-            if (_ndkCamera)
-                delete _ndkCamera;
-
-            //get all information about available cameras
-            HighResTimer t;
-
-            _ndkCamera = new SENSNdkCamera();
-            _ndkCamera->init(SENSCamera::Facing::BACK);
-
-            //start continious captureing request with certain configuration
-            SENSCamera::Config camConfig;
-            camConfig.targetWidth          = 640;
-            camConfig.targetHeight         = 360;
-            camConfig.focusMode            = SENSCamera::FocusMode::FIXED_INFINITY_FOCUS;
-            camConfig.convertToGray        = true;
-            camConfig.adjustAsynchronously = true;
-            _ndkCamera->start(camConfig);
-            ENGINE_DEBUG("startCamera: %fms", t.elapsedTimeInMilliSec());
-
-            //todo revert
-            //_earApp.setCamera(_ndkCamera);
-        }
-        catch (std::exception& e)
-        {
-            Utils::log("SENSNdkCamera", e.what());
-        }
-    }
-    else
-    {
-        checkAndRequestAndroidPermissions();
-    }
-     */
-}
-
-void Engine::stopCamera()
-{
-    try
-    {
-        if (_ndkCamera)
-        {
-            _ndkCamera->stop();
-            //delete _ndkCamera;
-            //_ndkCamera = nullptr;
-        }
-    }
-    catch (std::exception& e)
-    {
-        Utils::log("SENSNdkCamera", e.what());
     }
 }
 
@@ -454,7 +403,7 @@ void Engine::onPermissionGranted(jboolean granted)
 
     if (_cameraGranted)
     {
-        _ndkCamera->setPermissionGranted();
+        _camera->setPermissionGranted();
         //startCamera();
     }
 }
@@ -691,11 +640,13 @@ void Engine::extractAPKFolder(std::string internalPath, std::string assetDirPath
     }
 
     std::string outputPath = Utils::unifySlashes(internalPath + "/" + assetDirPath + "/");
+    /*
     if (Utils::dirExists(outputPath))
     {
         //stop here, we assume everything is installed (uninstall the app if you added assets)
         return;
     }
+     */
 
     Utils::makeDir(outputPath);
 
@@ -705,10 +656,12 @@ void Engine::extractAPKFolder(std::string internalPath, std::string assetDirPath
     while ((filename = AAssetDir_getNextFileName(assetDir)) != NULL)
     {
         std::string inputFilename = assetDirPath + "/" + std::string(filename);
+        //Utils::log("WAI", "inputFilename: %s", inputFilename.c_str());
         AAsset*     asset         = AAssetManager_open(mgr, inputFilename.c_str(), AASSET_MODE_STREAMING);
         int         nb_read       = 0;
         char        buf[BUFSIZ];
         std::string outputFilename = outputPath + std::string(filename);
+        //Utils::log("WAI", "outputFilename: %s", outputFilename.c_str());
         FILE*       out            = fopen(outputFilename.c_str(), "w");
         while ((nb_read = AAsset_read(asset, buf, BUFSIZ)) > 0)
         {

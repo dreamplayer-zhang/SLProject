@@ -37,6 +37,8 @@ public:
         _doubleBufferOutput(doubleBufferOutput)
     {
     }
+    virtual ~KPextractor() = default;
+
     // Compute the ORB features and descriptors on an image.
     // ORB are dispersed on the image using an octree.
     // Mask is ignored in the current implementation.
@@ -56,7 +58,7 @@ public:
 
     float GetScaleFactor()
     {
-        return scaleFactor;
+        return (float)scaleFactor;
     }
 
     std::vector<float> GetScaleFactors()

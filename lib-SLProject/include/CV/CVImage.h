@@ -100,10 +100,11 @@ public:
     void               setPixeliRGBA(int x, int y, CVVec4f color);
     void               resize(int width,
                               int height);
+    void               flipX();
     void               flipY();
     void               fill(uchar r, uchar g, uchar b);
     void               fill(uchar r, uchar g, uchar b, uchar a);
-    void               crop(float targetWdivH);
+    void               crop(float targetWdivH, int& cropW, int& cropH);
     static CVPixFormat cv2glPixelFormat(int cvType);
 
     // Getters
@@ -138,6 +139,6 @@ protected:
     string      _path;          //!< path on the filesystem
 };
 //-----------------------------------------------------------------------------
-typedef std::vector<CVImage*> CVVImage;
+typedef vector<CVImage*> CVVImage;
 //-----------------------------------------------------------------------------
 #endif

@@ -6,31 +6,30 @@
 #include <ImGuiWrapper.h>
 #include <sm/EventSender.h>
 #include <ErlebAR.h>
+#include <Resources.h>
 
 class SLScene;
 class SLSceneView;
-class ImFont;
+struct ImFont;
 
 class AboutGui : public ImGuiWrapper
   , private sm::EventSender
 {
 public:
-    AboutGui(sm::EventHandler&   eventHandler,
+    AboutGui(const ImGuiEngine&  imGuiEngine,
+             sm::EventHandler&   eventHandler,
              ErlebAR::Resources& resources,
              int                 dotsPerInch,
              int                 screenWidthPix,
-             int                 screenHeightPix,
-             std::string         fontPath);
-    ~AboutGui();
+             int                 screenHeightPix);
+    ~AboutGui() override;
 
     void build(SLScene* s, SLSceneView* sv) override;
-    void onResize(SLint scrW, SLint scrH) override;
+    void onResize(SLint scrW, SLint scrH, SLfloat scr2fbX, SLfloat scr2fbY) override;
     void onShow(); //call when gui becomes visible
 
 private:
     void resize(int scrW, int scrH);
-    void pushStyle();
-    void popStyle();
 
     float _screenW;
     float _screenH;
@@ -42,10 +41,6 @@ private:
     float _textWrapW;
     float _windowPaddingContent;
     float _itemSpacingContent;
-
-    ImFont* _fontBig      = nullptr;
-    ImFont* _fontSmall    = nullptr;
-    ImFont* _fontStandard = nullptr;
 
     ErlebAR::Resources& _resources;
 };

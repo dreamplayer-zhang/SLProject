@@ -22,6 +22,8 @@
 #include <SLGLConetracer.h>
 #include <SLScene.h>
 #include <SLSkybox.h>
+#include <SLOptixRaytracer.h>
+#include <SLOptixPathtracer.h>
 #include <SLRect.h>
 #include <SLUiInterface.h>
 
@@ -39,7 +41,7 @@ framework. All other function calls are downwards from the GUI framework
 //! Callback function typedef for custom SLSceneView derived creator function
 typedef SLSceneView*(SL_STDCALL* cbOnNewSceneView)(SLScene* s, int dotsPerInch, SLInputManager& inputManager);
 
-//! Callback function typedef for GUI window update
+//! Callback function typedef for GUI window updateRec
 typedef SLbool(SL_STDCALL* cbOnWndUpdate)();
 
 //! Callback function typedef for select node
@@ -64,19 +66,20 @@ class SLSceneView : public SLObject
 {
     friend class SLNode;
     friend class SLRaytracer;
+    friend class SLOptixRaytracer;
     friend class SLPathtracer;
 
 public:
     SLSceneView(SLScene* s, int dpi, SLInputManager& inputManager);
     ~SLSceneView() override;
 
-    void init(SLstring       name,
-              SLint          screenWidth,
-              SLint          screenHeight,
-              void*          onWndUpdateCallback,
-              void*          onSelectNodeMeshCallback,
-              SLUiInterface* gui,
-              std::string    configPath);
+    void init(SLstring           name,
+              SLint              screenWidth,
+              SLint              screenHeight,
+              void*              onWndUpdateCallback,
+              void*              onSelectNodeMeshCallback,
+              SLUiInterface*     gui,
+              const std::string& configPath);
     void unInit();
 
     // Not overridable event handlers
@@ -124,13 +127,14 @@ public:
 
     // Misc.
     SLstring windowTitle();
+    void     printStats() { _stats3D.print(); }
     void     startRaytracing(SLint maxDepth);
     void     startPathtracing(SLint maxDepth, SLint samples);
     void     startConetracing();
-    void     printStats() { _stats3D.print(); }
     void     setViewportFromRatio(const SLVec2i&  vpRatio,
                                   SLViewportAlign vpAlignment,
                                   SLbool          vpSameAsVideo);
+								  
     // Callback routines
     cbOnWndUpdate      onWndUpdate;        //!< C-Callback for app for intermediate window repaint
     cbOnSelectNodeMesh onSelectedNodeMesh; //!< C-Callback for app on node selection
@@ -145,12 +149,22 @@ public:
     void doMultiSampling(SLbool doMS) { _doMultiSampling = doMS; }
     void doDepthTest(SLbool doDT) { _doDepthTest = doDT; }
     void doFrustumCulling(SLbool doFC) { _doFrustumCulling = doFC; }
-    //void gotPainted(SLbool val) { _gotPainted = val; }
     void renderType(SLRenderType rt) { _renderType = rt; }
     void viewportSameAsVideo(bool sameAsVideo) { _viewportSameAsVideo = sameAsVideo; }
+    void scr2fb(float scr2fbX, float scr2fbY)
+    {
+        _scr2fbX = scr2fbX;
+        _scr2fbY = scr2fbY;
+
+        if (_gui)
+            _gui->onResize(_viewportRect.width,
+                           _viewportRect.height,
+                           _scr2fbX,
+                           _scr2fbY);
+    }
 
     // Getters
-    //SLuint          index() const { return _index; }
+    SLScene&        s() { return *_s; }
     SLCamera*       camera() { return _camera; }
     SLCamera*       sceneViewCamera() { return &_sceneViewCamera; }
     SLSkybox*       skybox() { return _skybox; }
@@ -159,6 +173,10 @@ public:
     SLint           scrWdiv2() const { return _scrWdiv2; }
     SLint           scrHdiv2() const { return _scrHdiv2; }
     SLfloat         scrWdivH() const { return _scrWdivH; }
+    SLfloat         scr2fbX() const { return _scr2fbX; }
+    SLfloat         scr2fbY() const { return _scr2fbY; }
+    SLint           dpi() const { return _dpi; }
+    SLfloat         dpmm() const { return (float)_dpi / 25.4f; }
     SLRecti         viewportRect() const { return _viewportRect; }
     SLVec2i         viewportRatio() const { return _viewportRatio; }
     SLfloat         viewportWdivH() const { return (float)_viewportRect.width / (float)_viewportRect.height; }
@@ -167,7 +185,6 @@ public:
     SLViewportAlign viewportAlign() const { return _viewportAlign; }
     SLbool          viewportSameAsVideo() const { return _viewportSameAsVideo; }
     SLUiInterface*  gui() { return _gui; }
-    //SLbool          gotPainted() const { return _gotPainted; }
     SLbool          doFrustumCulling() const { return _doFrustumCulling; }
     SLbool          doMultiSampling() const { return _doMultiSampling; }
     SLbool          doDepthTest() const { return _doDepthTest; }
@@ -175,6 +192,7 @@ public:
     SLVNode*        nodesVisible() { return &_nodesVisible; }
     SLVNode*        nodesVisible2D() { return &_nodesVisible2D; }
     SLVNode*        nodesBlended() { return &_nodesBlended; }
+    SLVNode*        nodesOverdrawn() { return &_nodesOverdrawn; }
     SLRaytracer*    raytracer() { return &_raytracer; }
     SLPathtracer*   pathtracer() { return &_pathtracer; }
     SLGLConetracer* conetracer() { return &_conetracer; }
@@ -187,12 +205,19 @@ public:
     AvgFloat&       draw3DTimesMS() { return _draw3DTimesMS; }
     SLNodeStats&    stats2D() { return _stats2D; }
     SLNodeStats&    stats3D() { return _stats3D; }
-    SLScene&        s() { return *_s; }
+#ifdef SL_HAS_OPTIX
+    SLOptixRaytracer* optixRaytracer(){ return &_optixRaytracer; }
+    SLOptixPathtracer* optixPathtracer() { return &_optixPathtracer; }
+    SLbool             draw3DOptixRT();
+    SLbool             draw3DOptixPT();
+    void               startOptixRaytracing(SLint maxDepth);
+    void               startOptixPathtracing(SLint maxDepth, SLint samples);
+#endif
 
     static const SLint LONGTOUCH_MS; //!< Milliseconds duration of a long touch event
 
 protected:
-    //SLuint         _index;           //!< index of this pointer in SLScene::sceneView vector
+    SLScene* _s; //!< Pointer scene observed by this scene view
     SLCamera*      _camera;          //!< Pointer to the _active camera
     SLCamera       _sceneViewCamera; //!< Default camera for this SceneView (default cam not in scenegraph)
     SLUiInterface* _gui = nullptr;   //!< ImGui instance
@@ -228,6 +253,9 @@ protected:
     SLint           _scrWdiv2;            //!< Screen half width in pixels
     SLint           _scrHdiv2;            //!< Screen half height in pixels
     SLfloat         _scrWdivH;            //!< Screen side aspect ratio
+    SLfloat         _scr2fbX{1.0f};       //!< Horizontal screen to framebuffer ratio
+    SLfloat         _scr2fbY{1.0f};       //!< Vertical screen to framebuffer ratio
+    int             _dpi;                 //!< dots per inch of screen
     SLVec2i         _viewportRatio;       //!< ratio of viewport
     SLViewportAlign _viewportAlign;       //!< alignment of viewport
     SLRecti         _viewportRect;        //!< rectangle of viewport
@@ -238,22 +266,26 @@ protected:
     SLVNode _nodesVisible;   //!< Vector of all visible 3D nodes
     SLVNode _nodesVisible2D; //!< Vector of all visible 2D nodes drawn in ortho projection
     SLVNode _nodesBlended;   //!< Vector of visible and blended nodes
+    SLVNode _nodesOverdrawn; //!< Vector of helper nodes drawn over all others
 
     SLRaytracer    _raytracer;  //!< Whitted style raytracer
     SLbool         _stopRT;     //!< Flag to stop the RT
     SLPathtracer   _pathtracer; //!< Pathtracer
     SLbool         _stopPT;     //!< Flag to stop the PT
     SLGLConetracer _conetracer; //!< Conetracer CT
-
-    int _dpi; //! dots per inch of screen
+	
+#ifdef SL_HAS_OPTIX
+    SLOptixRaytracer  _optixRaytracer;  //!< Whitted style raytracer with Optix
+    SLbool            _stopOptixRT;     //!< Flag to stop the Optix RT
+    SLOptixPathtracer _optixPathtracer; //!< Path tracer with Optix
+    SLbool            _stopOptixPT;     //!< Flag to stop the Optix PT
+#endif
 
     SLInputManager& _inputManager;
 
     AvgFloat _cullTimesMS;   //!< Averaged time for culling in ms
     AvgFloat _draw3DTimesMS; //!< Averaged time for 3D drawing in ms
     AvgFloat _draw2DTimesMS; //!< Averaged time for 2D drawing in ms
-
-    SLScene* _s; //!< Pointer scene observed by this scene view
 };
 //-----------------------------------------------------------------------------
 #endif

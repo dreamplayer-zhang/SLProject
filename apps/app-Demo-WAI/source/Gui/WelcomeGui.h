@@ -4,6 +4,7 @@
 #include <string>
 #include <ImGuiWrapper.h>
 #include <ErlebAR.h>
+#include <Resources.h>
 
 class SLScene;
 class SLSceneView;
@@ -11,7 +12,8 @@ class SLSceneView;
 class WelcomeGui : public ImGuiWrapper
 {
 public:
-    WelcomeGui(ErlebAR::Resources& resources,
+    WelcomeGui(const ImGuiEngine&  imGuiEngine,
+               ErlebAR::Resources& resources,
                int                 dotsPerInch,
                int                 screenWidthPix,
                int                 screenHeightPix,
@@ -21,7 +23,7 @@ public:
     ~WelcomeGui();
 
     void build(SLScene* s, SLSceneView* sv) override;
-    void onResize(SLint scrW, SLint scrH) override;
+    void onResize(SLint scrW, SLint scrH, SLfloat scr2fbX, SLfloat scr2fbY) override;
 
 private:
     void resize(int scrW, int scrH);
@@ -41,12 +43,9 @@ private:
 
     float _screenWPix;
     float _screenHPix;
-    float _smallFontShift;
 
     float _textFrameTPix;
     float _textFrameLRPix;
-    float _bigTextHPix;
-    float _smallTextHPix;
 
     float _bfhLogoHPix;
     float _bfhLogoWPix;
@@ -54,9 +53,6 @@ private:
     float _adminLogoWPix;
     float _logoFrameBPix;
     float _logoFrameLRPix;
-
-    ImFont* _fontBig   = nullptr;
-    ImFont* _fontSmall = nullptr;
 
     ErlebAR::Resources& _resources;
 };
