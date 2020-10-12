@@ -8,7 +8,6 @@
 #include <SLVec4.h>
 #include <SLKeyframeCamera.h>
 #include <SLGLProgramManager.h>
-#include <ErlebAR.h>
 
 AppWAIScene::AppWAIScene(SLstring name, std::string dataDir, std::string erlebARDir)
   : SLScene(name, nullptr),
@@ -88,15 +87,6 @@ void AppWAIScene::rebuild(std::string location, std::string area)
     blueMat->program(new SLGLGenericProgram(&assets, _dataDir + "shaders/ColorUniformPoint.vert", _dataDir + "shaders/Color.frag"));
     blueMat->program()->addUniform1f(new SLGLUniform1f(UT_const, "u_pointSize", 4.0f));
 
-/*
-    SLMaterial* matVideoBackground = new SLMaterial(&assets,
-                                                    "matVideoBackground",
-                                                    videoTexture,
-                                                    nullptr,
-                                                    nullptr,
-                                                    nullptr,
-                                                    spVideoBackground);
-                                                    */
 
     covisibilityGraphMat = new SLMaterial(&assets, "covisibilityGraphMat", SLCol4f::YELLOW);
     covisibilityGraphMat->program(new SLGLGenericProgram(&assets, _dataDir + "shaders/ColorUniform.vert", _dataDir + "shaders/Color.frag"));
@@ -108,6 +98,18 @@ void AppWAIScene::rebuild(std::string location, std::string area)
     _videoImage = new SLGLTexture(&assets, _dataDir + "images/textures/LiveVideoError.png", GL_LINEAR, GL_LINEAR);
     cameraNode->background().texture(_videoImage, false);
 
+    SLGLProgram* spVideoBackground = new SLGLGenericProgram(&assets,
+                                                            _dataDir + "shaders/PerVrtTextureBackground.vert",
+                                                            _dataDir + "shaders/PerVrtTextureBackground.frag");
+
+    matVideoBackground = new SLMaterial(&assets,
+                                        "matVideoBackground",
+                                        _videoImage,
+                                        nullptr,
+                                        nullptr,
+                                        nullptr,
+                                        spVideoBackground);
+
     // Create directional light for the sun light
     SLLightDirect* light1 = new SLLightDirect(&assets, this, 5.0f);
     light1->powers(1.0f, 1.0f, 1.0f);
@@ -117,6 +119,7 @@ void AppWAIScene::rebuild(std::string location, std::string area)
     _root3D->addChild(light1);
     // Let the sun be rotated by time and location
     //SLApplication::devLoc.sunLightNode(light1);
+    //light1->zenithPowerScaleEnabled(true);
 
     HighResTimer t;
     if (location == "avenches" || location == "Avenches")
@@ -125,25 +128,16 @@ void AppWAIScene::rebuild(std::string location, std::string area)
         if (area == "Amphitheater-Entrance" || area == "Amphitheater")
         {
             std::string      modelPath = _dataDir + "erleb-AR/models/avenches/Aventicum-Amphitheater1.gltf";
-            SLAssimpImporter importer;
             loadMesh(modelPath);
             augmentationRoot->rotate(13.7f, 0, 1, 0, TS_parent);
 
             // Let the video shine through some objects
-            /*
             augmentationRoot->findChild<SLNode>("Tht-Aussen-Untergrund")->setMeshMat(matVideoBackground, true);
             augmentationRoot->findChild<SLNode>("Tht-Eingang-Ost-Boden")->setMeshMat(matVideoBackground, true);
             augmentationRoot->findChild<SLNode>("Tht-Arenaboden")->setMeshMat(matVideoBackground, true);
             augmentationRoot->findChild<SLNode>("Tht-Aussen-Terrain")->setMeshMat(matVideoBackground, true);
-            */
-            augmentationRoot->findChild<SLNode>("Tht-Aussen-Untergrund")->setDrawBitsRec(SL_DB_HIDDEN, true);
-            augmentationRoot->findChild<SLNode>("Tht-Eingang-Ost-Boden")->setDrawBitsRec(SL_DB_HIDDEN, true);
-            augmentationRoot->findChild<SLNode>("Tht-Arenaboden")->setDrawBitsRec(SL_DB_HIDDEN, true);
-            augmentationRoot->findChild<SLNode>("Tht-Aussen-Terrain")->setDrawBitsRec(SL_DB_HIDDEN, true);
-            // Rotate to the true geographic rotation
-            augmentationRoot->rotate(13.7f, 0, 1, 0, TS_parent);
         }
-        else if (area == "Cigonier-marker")
+        else if (area == "Cigognier")
         {
             std::string      modelPath = _dataDir + "erleb-AR/models/avenches/Aventicum-Cigognier1.gltf";
             SLAssimpImporter importer;

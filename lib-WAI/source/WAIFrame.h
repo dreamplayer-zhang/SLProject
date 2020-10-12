@@ -53,6 +53,7 @@ public:
     WAIFrame(const WAIFrame& frame);
     //!constructor used for detection in tracking
     WAIFrame(const cv::Mat& imGray, const double& timeStamp, KPextractor* extractor, cv::Mat& K, cv::Mat& distCoef, WAIOrbVocabulary* vocabulary, bool retainImg = false);
+    WAIFrame(const cv::Mat& imGray, KPextractor* extractor, cv::Mat& K, cv::Mat& distCoeff);
 
     // Extract feature points on the image
     void ExtractFeaturePoints(const cv::Mat& im);

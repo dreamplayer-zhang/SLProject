@@ -969,6 +969,8 @@ void TestView::updateTrackingVisualization(const bool iKnowWhereIAm)
         if (_pauseVideo)
         {
             WAIFrame frame = _mode->getLastFrame();
+            if (_mode->getTrackingState() == WAI::TrackingState_TrackingOK)
+                frame.ComputeBoW();
             frame.mnId = 1;
             WAIKeyFrameDB* kfdb = _mode->getMap()->GetKeyFrameDB();
             vpCandidateKFs = kfdb->DetectRelocalizationCandidates(&frame, 0.8, false);

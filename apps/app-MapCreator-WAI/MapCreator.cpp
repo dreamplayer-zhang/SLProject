@@ -603,14 +603,14 @@ void MapCreator::thinOutNewWaiMap(const std::string&              mapDir,
         return;
     }
 
-    std::cout << "Check graph consitency before culling" << std::endl;
-    WAISlamTools::checkKFConnectionsTree(map.get());
+    //std::cout << "Check graph consitency before culling" << std::endl;
+    //WAISlamTools::checkKFConnectionsTree(map.get());
     //cull keyframes
     std::vector<WAIKeyFrame*> kfs = map->GetAllKeyFrames();
     cullKeyframes(map.get(), kfs, keyFrameVideoMatching, modeParams.cullRedundantPerc);
 
-    std::cout << "Check graph consitency after culling" << std::endl;
-    WAISlamTools::checkKFConnectionsTree(map.get());
+    //std::cout << "Check graph consitency after culling" << std::endl;
+    //WAISlamTools::checkKFConnectionsTree(map.get());
 
     //testKFVideoMatching(keyFrameVideoMatching);
 

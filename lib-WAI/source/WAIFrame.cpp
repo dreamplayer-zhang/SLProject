@@ -153,6 +153,67 @@ WAIFrame::WAIFrame(const cv::Mat& imGray, const double& timeStamp, KPextractor* 
 
     AVERAGE_TIMING_STOP("WAIFrame");
 }
+
+WAIFrame::WAIFrame(const cv::Mat& imGray, KPextractor* extractor, cv::Mat& K, cv::Mat& distCoef)
+  : mpORBextractorLeft(extractor)
+{
+    AVERAGE_TIMING_START("WAIFrame");
+    //ghm1: ORB_SLAM uses float precision
+    K.convertTo(mK, CV_32F);
+    distCoef.convertTo(mDistCoef, CV_32F);
+
+    // Frame ID
+    mnId = nNextId++;
+
+    // Scale Level Info
+    mnScaleLevels     = mpORBextractorLeft->GetLevels();
+    mfScaleFactor     = mpORBextractorLeft->GetScaleFactor();
+    mfLogScaleFactor  = log(mfScaleFactor);
+    mvScaleFactors    = mpORBextractorLeft->GetScaleFactors();
+    mvInvScaleFactors = mpORBextractorLeft->GetInverseScaleFactors();
+    mvLevelSigma2     = mpORBextractorLeft->GetScaleSigmaSquares();
+    mvInvLevelSigma2  = mpORBextractorLeft->GetInverseScaleSigmaSquares();
+
+    // ORB extraction
+    ExtractFeaturePoints(imGray);
+
+    N = (int)mvKeys.size();
+
+    if (mvKeys.empty())
+    {
+        AVERAGE_TIMING_STOP("WAIFrame");
+        return;
+    }
+
+    UndistortKeyPoints();
+
+    mvpMapPoints = vector<WAIMapPoint*>(N, static_cast<WAIMapPoint*>(NULL));
+
+    // This is done only for the first Frame (or after a change in the calibration)
+    if (mbInitialComputations)
+    {
+        ComputeImageBounds(imGray);
+
+        mfGridElementWidthInv  = static_cast<float>(FRAME_GRID_COLS) / (mnMaxX - mnMinX);
+        mfGridElementHeightInv = static_cast<float>(FRAME_GRID_ROWS) / (mnMaxY - mnMinY);
+
+        fx    = mK.at<float>(0, 0);
+        fy    = mK.at<float>(1, 1);
+        cx    = mK.at<float>(0, 2);
+        cy    = mK.at<float>(1, 2);
+        invfx = 1.0f / fx;
+        invfy = 1.0f / fy;
+
+        mbInitialComputations = false;
+    }
+
+    AssignFeaturesToGrid();
+
+    AVERAGE_TIMING_STOP("WAIFrame");
+}
+
+
+
 //-----------------------------------------------------------------------------
 void WAIFrame::AssignFeaturesToGrid()
 {
