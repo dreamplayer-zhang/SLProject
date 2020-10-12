@@ -778,6 +778,7 @@ void AppDemoGui::build(SLProjectScene* s, SLSceneView* sv)
             ImGui::PopFont();
         }
 #endif
+
         if (showImGuiMetrics)
         {
             ImGui::ShowMetricsWindow();
@@ -1278,6 +1279,8 @@ void AppDemoGui::buildMenuBar(SLProjectScene* s, SLSceneView* sv)
                     if (ImGui::MenuItem("Massive Scene", nullptr, sid == SID_MassiveScene))
                         s->onLoad(s, sv, SID_MassiveScene);
 
+                    if (ImGui::MenuItem("Feature Track", nullptr, sid == SID_FeatureTrack))
+                        s->onLoad(s, sv, SID_FeatureTrack);
                     ImGui::EndMenu();
                 }
 

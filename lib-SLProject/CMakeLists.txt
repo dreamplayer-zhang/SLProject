@@ -53,6 +53,7 @@ file(GLOB headers
         ${CMAKE_CURRENT_SOURCE_DIR}/include/CV/CVTrackedChessboard.h
         ${CMAKE_CURRENT_SOURCE_DIR}/include/CV/CVTrackedFaces.h
         ${CMAKE_CURRENT_SOURCE_DIR}/include/CV/CVTrackedFeatures.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/CV/CVFeatureTrack.h
         ${CMAKE_CURRENT_SOURCE_DIR}/include/GL/SLGLConetracer.h
         ${CMAKE_CURRENT_SOURCE_DIR}/include/GL/SLGLConetracerTex3D.h
         ${CMAKE_CURRENT_SOURCE_DIR}/include/GL/SLGLDepthBuffer.h
@@ -175,6 +176,7 @@ set(sources
         ${CMAKE_CURRENT_SOURCE_DIR}/source/CV/CVTrackedChessboard.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/CV/CVTrackedFaces.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/CV/CVTrackedFeatures.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/source/CV/CVFeatureTrack.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/GL/SLGLConetracer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/GL/SLGLConetracerTex3D.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/GL/SLGLDepthBuffer.cpp
