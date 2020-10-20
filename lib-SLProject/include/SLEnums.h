@@ -100,6 +100,7 @@ enum SLSceneID
     SID_PointClouds,
     SID_LargeModel,
     SID_MassiveScene,
+    SID_FeatureTrack,
 
     SID_ShaderPerVertexBlinn,
     SID_ShaderPerPixelBlinn,
