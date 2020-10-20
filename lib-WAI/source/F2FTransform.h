@@ -6,6 +6,7 @@
 
 #include <WAIHelper.h>
 #include <WAIFrame.h>
+#include <Eigen/Core>
 
 class WAI_API F2FTransform
 {
@@ -30,6 +31,29 @@ public:
                               int             nbIterations,
                               float           sigma);
 
+    static bool FindTransform(const cv::Mat            K,
+                              std::vector<cv::Point2f> p1,
+                              std::vector<cv::Point2f> p2,
+                              cv::Mat&                 tcw);
+
+    static float OpticalFlowMatch(const cv::Mat&            f1Gray,
+                                  const cv::Mat&            f2Gray,
+                                  std::vector<cv::KeyPoint>& kp1,
+                                  std::vector<cv::Point2f>&  p1,
+                                  std::vector<cv::Point2f>&  p2);
+
+    static bool EstimateRot(const cv::Mat            K,
+                            std::vector<cv::Point2f> p1,
+                            std::vector<cv::Point2f> p2,
+                            cv::Mat&                 tcw);
+
+    /*
+    static bool EstimateRot(const cv::Mat K,
+                            std::vector<cv::Point2f> p1,
+                            std::vector<cv::Point2f> p2,
+                            cv::Mat&                 tcw);
+                            */
+
     static void Triangulate(const cv::Point& p1, const cv::Point& p2, const cv::Mat& P1, const cv::Mat& P2, cv::Mat& x3D);
 
 private:
@@ -53,6 +77,13 @@ private:
                                 int                               iter,
                                 float                             sigma);
 
+    static void FindFundamental(const std::vector<cv::KeyPoint>& vKeysUn1,
+                                const std::vector<cv::KeyPoint>& vKeysUn2,
+                                std::vector<bool>&               inliers,
+                                float&                           score,
+                                cv::Mat&                         F21,
+                                float                            sigma);
+
     static cv::Mat ComputeH21(const std::vector<cv::Point2f>& vP1, const std::vector<cv::Point2f>& vP2);
     static cv::Mat ComputeF21(const std::vector<cv::Point2f>& vP1, const std::vector<cv::Point2f>& vP2);
 
@@ -63,12 +94,20 @@ private:
                                  const cv::Mat&                   H12,
                                  std::vector<bool>&               inliers,
                                  float                            sigma);
+
     static float CheckFundamental(std::vector<Match>&              m,
                                   const std::vector<cv::KeyPoint>& vKeysUn1,
                                   const std::vector<cv::KeyPoint>& vKeysUn2,
                                   const cv::Mat&                   F21,
                                   std::vector<bool>&               inliers,
                                   float                            sigma);
+
+    static float CheckFundamental(const std::vector<cv::KeyPoint>& vKeysUn1,
+                                  const std::vector<cv::KeyPoint>& vKeysUn2,
+                                  const cv::Mat&                   F21,
+                                  std::vector<bool>&               inliers,
+                                  float                            sigma);
+
     static bool  ReconstructF(std::vector<Match>&              m,
                               std::vector<bool>&               inliers,
                               const std::vector<cv::KeyPoint>& vKeysUn1,

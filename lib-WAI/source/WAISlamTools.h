@@ -80,8 +80,7 @@ public:
                                int&      inliers,
                                bool      minAccScoreFilter = false);
 
-    static bool tracking(WAIMap*   map,
-                         LocalMap& localMap,
+    static bool tracking(LocalMap& localMap,
                          WAIFrame& frame,
                          WAIFrame& lastFrame,
                          int       lastRelocFrameId,

@@ -102,7 +102,7 @@ bool TestRunnerView::update()
                 case TestMode_Tracking: {
                     if (_isTracking)
                     {
-                        if (WAISlamTools::tracking(_map, _localMap, currentFrame, _lastFrame, _lastRelocFrameId, _velocity, _inliers))
+                        if (WAISlamTools::tracking(_localMap, currentFrame, _lastFrame, _lastRelocFrameId, _velocity, _inliers))
                         {
                             _trackingFrameCount++;
                             WAISlamTools::motionModel(currentFrame, _lastFrame, _velocity, _extrinsic);

@@ -451,8 +451,7 @@ bool WAISlamTools::oldInitialize(WAIFrame&         frame,
     return true;
 }
 
-bool WAISlamTools::tracking(WAIMap*   map,
-                            LocalMap& localMap,
+bool WAISlamTools::tracking(LocalMap& localMap,
                             WAIFrame& frame,
                             WAIFrame& lastFrame,
                             int       lastRelocFrameId,
