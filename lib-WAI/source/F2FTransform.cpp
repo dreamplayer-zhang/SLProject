@@ -26,57 +26,75 @@
 #include <Eigen/Geometry>
 #include <thread>
 
-float F2FTransform::OpticalFlowMatch(const cv::Mat&            f1Gray,
-                                     const cv::Mat&            f2Gray,
-                                     std::vector<cv::KeyPoint>& kp1,
-                                     std::vector<cv::Point2f>&  p1,
-                                     std::vector<cv::Point2f>&  p2)
+void F2FTransform::opticalFlowMatch(const cv::Mat&             f1Gray,
+                                    const cv::Mat&             f2Gray,
+                                    std::vector<cv::KeyPoint>& kp1,
+                                    std::vector<cv::Point2f>&  p1,
+                                    std::vector<cv::Point2f>&  p2,
+                                    std::vector<uchar>&        inliers,
+                                    std::vector<float>&        err)
 {
     cv::TermCriteria criteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 10, 0.03);
+    if (kp1.size() < 20)
+        return;
+    p1.clear();
+    p2.clear();
+    inliers.clear();
+    err.clear();
 
-    std::vector<cv::Point2f> tmp1;
-    std::vector<cv::Point2f> tmp2;
-    tmp1.reserve(kp1.size());
-    tmp2.reserve(kp1.size());
+    p1.reserve(kp1.size());
+    p2.reserve(kp1.size());
+    inliers.reserve(kp1.size());
+    err.reserve(kp1.size());
+
     for (int i = 0; i < kp1.size(); i++)
-    {
-        tmp1.push_back(kp1[i].pt);
-    }
-    std::vector<uchar>    status;
-    std::vector<float>    err;
-    cv::Size winSize(15, 15);
+        p1.push_back(kp1[i].pt);
+
+    cv::Size winSize(11, 11);
 
     cv::calcOpticalFlowPyrLK(
       f1Gray,
       f2Gray,
-      tmp1,                      // Previous and current keypoints coordinates.The latter will be
-      tmp2,                      // expanded if more good coordinates are detected during OptFlow
-      status,                    // Output vector for keypoint correspondences (1 = match found)
+      p1,                        // Previous and current keypoints coordinates.The latter will be
+      p2,                        // expanded if more good coordinates are detected during OptFlow
+      inliers,                   // Output vector for keypoint correspondences (1 = match found)
       err,                       // Error size for each flow
       winSize,                   // Search window for each pyramid level
       1,                         // Max levels of pyramid creation
       criteria,                  // Configuration from above
       0,                         // Additional flags
       0.001);                    // Minimal Eigen threshold
-
-    float motionAmplitude = 0;
-    for (unsigned int i = 0; i < status.size(); i++)
-    {
-        if (status[i] && err[i] < 5)
-        {
-            motionAmplitude += cv::norm(tmp1[i] - tmp2[i]);
-            tmp1[i].x -= f1Gray.rows/2;
-            tmp2[i].x -= f1Gray.rows/2;
-            tmp1[i].y -= f1Gray.cols/2;
-            tmp2[i].y -= f1Gray.cols/2;
-            p1.push_back(tmp1[i]);
-            p2.push_back(tmp2[i]);
-        }
-    }
-    return motionAmplitude / p1.size();
 }
 
-bool CheckCoherentRotation(cv::Mat_<double>& R)
+float F2FTransform::filterPoints(std::vector<cv::Point2f>& p1,
+                                 std::vector<cv::Point2f>& p2,
+                                 std::vector<cv::Point2f>& goodP1,
+                                 std::vector<cv::Point2f>& goodP2,
+                                 std::vector<uchar>&       inliers,
+                                 std::vector<float>&       err)
+{
+    if (p1.size() == 0)
+        return 0;
+    goodP1.clear();
+    goodP2.clear();
+    goodP1.reserve(p1.size());
+    goodP2.reserve(p1.size());
+    float avgMotion = 0;
+
+    for (int i = 0, j = 0; i < p1.size(); i++)
+    {
+        if (inliers[i] && err[i] < 5.0)
+        {
+            goodP1.push_back(p1[i]);
+            goodP2.push_back(p2[i]);
+            avgMotion += cv::norm(p1[i] - p2[i]);
+            j++;
+        }
+    }
+    return avgMotion / goodP1.size();
+}
+
+bool F2FTransform::checkCoherentRotation(cv::Mat_<double>& R)
 {
     float detR = fabs(determinant(R));
     if (detR - 1.0 < 1e-07 && detR - 1.0 > -1e-07)
@@ -87,7 +105,7 @@ bool CheckCoherentRotation(cv::Mat_<double>& R)
     return true;
 }
 
-bool F2FTransform::FindTransform(const cv::Mat            K,
+bool F2FTransform::findTransform(const cv::Mat            K,
                                  std::vector<cv::Point2f> p1,
                                  std::vector<cv::Point2f> p2,
                                  cv::Mat&                 tcw)
@@ -112,7 +130,7 @@ bool F2FTransform::FindTransform(const cv::Mat            K,
 
     cv::Mat_<double> R = svd.u * cv::Mat(W) * svd.vt; //HZ 9.19
     cv::Mat_<double> t = svd.u.col(2); //u3
-    if (!CheckCoherentRotation(R))
+    if (!checkCoherentRotation(R))
         return false;
     tcw = cv::Mat::eye(4, 4, CV_32F);
     R.copyTo(tcw.rowRange(0, 3).colRange(0, 3));
@@ -120,162 +138,86 @@ bool F2FTransform::FindTransform(const cv::Mat            K,
 
     return true;
 }
-/*
-Mat_<double> LinearLSTriangulation(
-  Point3d u,  //homogenous image point (u,v,1)
-  Matx34d P,  //camera 1 matrix
-  Point3d u1, //homogenous image point in 2nd camera
-  Matx34d P1  //camera 2 matrix
-)
-{
-    //build A matrix
-    Matx43d A(u.x * P(2, 0) - P(0, 0), u.x * P(2, 1) - P(0, 1), u.x * P(2, 2) - P(0, 2),
-              u.y * P(2, 0) - P(1, 0), u.y * P(2, 1) - P(1, 1), u.y * P(2, 2) - P(1, 2),
-              u1.x * P1(2, 0) - P1(0, 0), u1.x * P1(2, 1) - P1(0, 1), u1.x * P1(2, 2) - P1(0, 2),
-              u1.y * P1(2, 0) - P1(1, 0), u1.y * P1(2, 1) - P1(1, 1), u1.y * P1(2, 2) - P1(1, 2));
-    //build B vector
-    Matx41d B(-(u.x * P(2, 3) - P(0, 3)),
-              -(u.y * P(2, 3) - P(1, 3)),
-              -(u1.x * P1(2, 3) - P1(0, 3)),
-              -(u1.y * P1(2, 3) - P1(1, 3)));
-    //solve for X
-    Mat_<double> X;
-    solve(A, B, X, DECOMP_SVD);
-    return X;
-}
 
-double TriangulatePoints(
-  const vector<KeyPoint>& pt_set1,
-  const vector<KeyPoint>& pt_set2,
-  const Mat&              Kinv,
-  const Matx34d&          P,
-  const Matx34d&          P1,
-  vector<Point3d>&        pointcloud)
-{
-    vector<double> reproj_error;
-    for (unsigned int i = 0; i < pts_size; i++)
-    {
-        //convert to normalized homogeneous coordinates
-        Point2f      kp = pt_set1[i].pt;
-        Point3d      u(kp.x, kp.y, 1.0);
-        Mat_<double> um  = Kinv * Mat_<double>(u);
-        u                = um.at<Point3d>(0);
-        Point2f      kp1 = pt_set2[i].pt;
-        Point3d      u1(kp1.x, kp1.y, 1.0);
-        Mat_<double> um1 = Kinv * Mat_<double>(u1);
-        u1               = um1.at<Point3d>(0);
-        //triangulate
-        Mat_<double> X = LinearLSTriangulation(u, P, u1, P1);
-        //calculate reprojection error
-        Mat_<double> xPt_img = K * Mat(P1) * X;
-        Point2f      xPt_img_(xPt_img(0) / xPt_img(2), xPt_img(1) / xPt_img(2));
-        reproj_error.push_back(norm(xPt_img_ - kp1));
-        //store 3D point
-        pointcloud.push_back(Point3d(X(0), X(1), X(2)));
-    }
-    //return mean reprojection error
-    Scalar me = mean(reproj_error);
-    return me[0];
-}
-*/
-
-cv::Mat eigen2cv(Eigen::Matrix3f m)
+cv::Mat F2FTransform::eigen2cv(Eigen::Matrix3f m)
 {
     cv::Mat r;
     r = (cv::Mat_<float>(3, 3) << m(0), m(3), m(6), m(1), m(4), m(7), m(2), m(5), m(8));
     return r;
 }
 
-cv::Mat eigen2cv4(Eigen::Matrix4f m)
+cv::Mat F2FTransform::eigen2cv4(Eigen::Matrix4f m)
 {
     cv::Mat r;
     r = (cv::Mat_<double>(4, 4) << m(0), m(4), m(8), m(12), m(1), m(5), m(9), m(13), m(3), m(7), m(11), m(15));
     return r;
 }
 
-bool F2FTransform::EstimateRot(const cv::Mat            K,
-                               std::vector<cv::Point2f> p1,
-                               std::vector<cv::Point2f> p2,
-                               cv::Mat&                 tcw)
+bool F2FTransform::estimateRot(const cv::Mat             K,
+                               std::vector<cv::Point2f>& p1,
+                               std::vector<cv::Point2f>& p2,
+                               float&                    yaw,
+                               float&                    pitch,
+                               float&                    roll)
 {
-    if (p1.size() < 20)
+    if (p1.size() < 10)
         return false;
 
-    cv::Mat H = estimateAffine2D(p1, p2);
+    cv::Mat H = estimateAffinePartial2D(p1, p2);
+    float zrot = atan2(H.at<double>(1, 0), H.at<double>(0, 0));
 
-    float zrot = asin(min(H.at<double>(1, 0), 1.0));
-    float dx = H.at<double>(0, 2);
-    float dy = -H.at<double>(1, 2);
-
-    Eigen::Vector3f v1(0, 0, K.at<double>(0, 0));
-    Eigen::Vector3f v2(dx, dy, K.at<double>(0, 0));
-    v1.normalize();
-    v2.normalize();
-
-    float xyrot = acos(v1.dot(v2));
-    Eigen::Vector3f axis = v1.cross(v2).normalized();
-
-    Eigen::Matrix3f m;
-    m = Eigen::AngleAxisf(xyrot, axis);// * Eigen::AngleAxisf(zrot, Eigen::Vector3f::UnitZ());
-
-    cv::Mat R = eigen2cv(m);
-
-    tcw = cv::Mat::eye(4, 4, CV_32F);
-    R.copyTo(tcw.rowRange(0, 3).colRange(0, 3));
-
-    return true;
-}
-
-/*
-bool F2FTransform::EstimateRot(const cv::Mat            K,
-                               std::vector<cv::Point2f> p1,
-                               std::vector<cv::Point2f> p2,
-                               cv::Mat&                 tcw)
-{
-    if (p1.size() < 20)
-        return false;
-
-    cv::Mat H = estimateAffine2D(p1, p2);
-
-    float c = H.at<double>(0, 0);
-    float s = H.at<double>(1, 0);
-    float dx = H.at<double>(0, 2);
-    float dy = -H.at<double>(1, 2);
-
-    c = c < 1.0 ? c : 1.0; 
-    s = s < 1.0 ? s : 1.0; 
-    c = c > -1.0 ? c : -1.0; 
-    s = s > -1.0 ? s : -1.0;
+    //Compute dx dy (estimageAffinePartial doesn't give right result when rotating on z axis)
+    float dx = 0;
+    float dy = 0;
+    for (int i = 0; i < p1.size(); i++)
+    {
+        dx += p2[i].x - p1[i].x;
+        dy += p2[i].y - p1[i].y;
+    }
+    dx /= (float)p1.size();
+    dy /= (float)p1.size();
 
     Eigen::Vector3f v1(0, 0, 1.0);
     Eigen::Vector3f vx(dx, 0, K.at<double>(0, 0));
     Eigen::Vector3f vy(0, dy, K.at<double>(0, 0));
-    //Eigen::Vector3f vx(c * dx, s * dx, K.at<double>(0, 0));
-    //Eigen::Vector3f vy(-s * dy, c * dy, K.at<double>(0, 0));
-
     vx.normalize();
     vy.normalize();
 
-    float cx = v1.dot(vy);
-    float cy = v1.dot(vx);
-    Eigen::Vector3f ax = v1.cross(vy).normalized();
-    Eigen::Vector3f ay = v1.cross(vx).normalized();
-    Eigen::Vector3f az = Eigen::Vector3f::UnitZ();
+    float xrot = -acos(v1.dot(vx));
+    float yrot = -acos(v1.dot(vy));
 
-    float xrot = acos(cx);
-    float yrot = acos(cy);
-    float zrot = asin(s);
+    if (vx.dot(Eigen::Vector3f::UnitX()) > 0)
+        pitch = xrot;
+    else
+        pitch = -xrot;
 
-    Eigen::Matrix3f m;
-    m = Eigen::AngleAxisf(-xrot, ax) *
-        Eigen::AngleAxisf(-yrot, ay) *
-        Eigen::AngleAxisf(-zrot, az);
+    if (vy.dot(Eigen::Vector3f::UnitY()) > 0)
+        yaw = yrot;
+    else
+        yaw = -yrot;
 
-    cv::Mat R = eigen2cv(m);
-
-    tcw = cv::Mat::eye(4, 4, CV_32F);
-    R.copyTo(tcw.rowRange(0, 3).colRange(0, 3));
+    roll = -zrot;
 
     return true;
 }
-*/
+
+void F2FTransform::eulerToMat(float yaw, float pitch, float roll, cv::Mat& Rx, cv::Mat& Ry, cv::Mat& Rz)
+{
+    Eigen::Matrix3f mx, my, mz;
+    mx = Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitX());
+    my = Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY());
+    mz = Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitZ());
+
+    cv::Mat eRx = eigen2cv(mx);
+    cv::Mat eRy = eigen2cv(my);
+    cv::Mat eRz = eigen2cv(mz);
+
+    Rx = cv::Mat::eye(4, 4, CV_32F);
+    eRx.copyTo(Rx.rowRange(0, 3).colRange(0, 3));
+
+    Ry = cv::Mat::eye(4, 4, CV_32F);
+    eRy.copyTo(Ry.rowRange(0, 3).colRange(0, 3));
+
+    Rz = cv::Mat::eye(4, 4, CV_32F);
+    eRz.copyTo(Rz.rowRange(0, 3).colRange(0, 3));
+}

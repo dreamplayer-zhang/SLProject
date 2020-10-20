@@ -35,11 +35,18 @@ public:
 
 private:
     KPextractor* _trackingExtractor = nullptr;
-    WAIFrame                 _lastFrame;
-    bool                     _hasLastFrame;
-    cv::Mat                  _lastImageGray;
-    float                    _yaw, _pitch, _roll;
-    cv::Mat                  _Tcw;
+    WAIFrame     _lastFrame;
+    bool         _hasLastFrame;
+    cv::Mat      _lastImageGray;
+    cv::Mat      _Tcw;
+    float        _yaw, _pitch, _roll;
+
+    std::vector<cv::Point2f> ps1;
+    std::vector<cv::Point2f> ps2;
+    std::vector<cv::Point2f> goodPs1;
+    std::vector<cv::Point2f> goodPs2;
+    std::vector<uchar>       inliers;
+    std::vector<float>       err;
 };
 //-----------------------------------------------------------------------------
 #endif

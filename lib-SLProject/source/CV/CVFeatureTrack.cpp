@@ -18,7 +18,7 @@
 CVFeatureTrack::CVFeatureTrack()
 {
     float startMS = _timer.elapsedTimeInMilliSec();
-    int   nf           = 1000; // NO. of features
+    int   nf           = 500; // NO. of features
     float fScaleFactor = 1.2f; // Scale factor for pyramid construction
     int   nLevels      = 2;    // NO. of pyramid levels
     int   fIniThFAST   = 10;   // Init threshold for FAST corner detector
@@ -32,6 +32,9 @@ CVFeatureTrack::CVFeatureTrack()
     _Tcw          = cv::Mat::eye(4, 4, CV_32F);
     _Tcw.copyTo(_objectViewMat);
     _hasLastFrame = false;
+    _yaw          = 0;
+    _pitch        = 0;
+    _roll         = 0;
 }
 //-----------------------------------------------------------------------------
 CVFeatureTrack::~CVFeatureTrack()
@@ -69,42 +72,48 @@ bool CVFeatureTrack::track(CVMat          imageGray,
         _lastImageGray = imageGray.clone();
         return false;
     }
- 
-    std::vector<cv::Point2f> p1;
-    std::vector<cv::Point2f> p2;
 
-    float m = F2FTransform::OpticalFlowMatch(_lastImageGray,
-                                             imageGray,
-                                             _lastFrame.mvKeysUn,
-                                             p1,
-                                             p2);
+
+    F2FTransform::opticalFlowMatch(_lastImageGray,
+                                   imageGray,
+                                   _lastFrame.mvKeysUn,
+                                   ps1,
+                                   ps2,
+                                   inliers,
+                                   err);
+
+    float m = F2FTransform::filterPoints(ps1,
+                                         ps2,
+                                         goodPs1,
+                                         goodPs2,
+                                         inliers,
+                                         err);
 
     if (m < 2)
         return false;
 
-    for (unsigned int i = 0; i < p1.size(); i++)
+    for (unsigned int i = 0; i < goodPs1.size(); i++)
     {
-        p1[i].x += imageGray.rows/2;
-        p2[i].x += imageGray.rows/2;
-        p1[i].y += imageGray.cols/2;
-        p2[i].y += imageGray.cols/2;
-        cv::line(imageRgb, p1[i], p2[i], cv::Scalar(0, 255, 0));
+            cv::Point2f p1 = goodPs1[i];
+            cv::Point2f p2 = goodPs2[i];
+            cv::line(imageRgb, p1, p2, cv::Scalar(0, 255, 0));
     }
 
     bool ret;
-    cv::Mat tcw;
-
-    ret = F2FTransform::EstimateRot(intrinsic, p1, p2, tcw); 
-
-    //ret = F2FTransform::FindTransform(intrinsic, p1, p2, tcw);
-    //ret = F2FTransform::EstimateRot(intrinsic, p1, p2, tcw);
+    float yaw, pitch, roll;
+    ret = F2FTransform::estimateRot(intrinsic, goodPs1, goodPs2, yaw, pitch, roll);
 
     if (ret)
     {
-        _Tcw = tcw * _Tcw;
+        cv::Mat Rx, Ry, Rz, Tcw;
+        _yaw += yaw;
+        _pitch += pitch;
+        _roll += roll;
+        F2FTransform::eulerToMat(_yaw, _pitch, _roll, Rx, Ry, Rz);
+        Tcw = Rx * Ry * Rz;
         cv::Mat pos = cv::Mat::eye(4, 4, CV_32F);
         pos.at<float>(2, 3) = -1.5;
-        pos = _Tcw * pos;
+        pos = Tcw * pos;
         pos.copyTo(_objectViewMat);
     }
     _lastImageGray = imageGray.clone();
