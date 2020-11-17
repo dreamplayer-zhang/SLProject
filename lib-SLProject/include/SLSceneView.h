@@ -259,8 +259,8 @@ protected:
     SLint   _touchDowns; //!< finger touch down count
     SLVec2i _touch[3];   //!< up to 3 finger touch coordinates
 
-    SLGLVertexArrayExt _vaoTouch;   //!< Buffer for touch pos. rendering
-    SLGLVertexArrayExt _vaoCursor;  //!< Virtual cursor for stereo rendering
+    SLGLVertexArrayExt _vaoTouch;  //!< Buffer for touch pos. rendering
+    SLGLVertexArrayExt _vaoCursor; //!< Virtual cursor for stereo rendering
 
     SLint           _scrW;                //!< Screen width in pixels
     SLint           _scrH;                //!< Screen height in pixels

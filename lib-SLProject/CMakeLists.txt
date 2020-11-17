@@ -114,6 +114,7 @@ file(GLOB headers
         ${CMAKE_CURRENT_SOURCE_DIR}/include/SLDeviceRotation.h
         ${CMAKE_CURRENT_SOURCE_DIR}/include/SLDeviceLocation.h
         ${CMAKE_CURRENT_SOURCE_DIR}/include/SLDisk.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/SLECS.h
         ${CMAKE_CURRENT_SOURCE_DIR}/include/SLDrawBits.h
         ${CMAKE_CURRENT_SOURCE_DIR}/include/SLEnums.h
         ${CMAKE_CURRENT_SOURCE_DIR}/include/SLEventHandler.h
@@ -219,8 +220,9 @@ set(sources
         ${CMAKE_CURRENT_SOURCE_DIR}/source/SLDeviceRotation.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/SLDeviceLocation.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/SLDisk.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/source/SLECS.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/SLGrid.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/source/SLHorizonNode.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/source/SLHorizonNode.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/SLInputDevice.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/SLInputManager.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/source/SLJoint.cpp
