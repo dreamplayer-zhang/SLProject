@@ -17,6 +17,8 @@
 #include <SLInputManager.h>
 #include <Instrumentor.h>
 
+#include <SLECS.h>
+
 #include <utility>
 
 //-----------------------------------------------------------------------------
@@ -854,6 +856,8 @@ void SLSceneView::draw3DGLNodes(SLVNode& nodes,
                                 SLbool   alphaBlended,
                                 SLbool   depthSorted)
 {
+    PROFILE_FUNCTION();
+
     if (nodes.empty()) return;
 
     // For blended nodes we activate OpenGL blending and stop depth buffer updates
@@ -872,6 +876,13 @@ void SLSceneView::draw3DGLNodes(SLVNode& nodes,
         });
     }
 
+#if 0
+    ECS::World world = {};
+    ECS::convertToComponents(_s->root3D(), world);
+    ECS::transformUpdateSystem(world);
+    ECS::convertToNodes(world);
+#endif
+
     // draw the shapes directly with their wm transform
     for (auto* node : nodes)
     {
@@ -880,6 +891,7 @@ void SLSceneView::draw3DGLNodes(SLVNode& nodes,
 
         // Apply world transform
         stateGL->modelViewMatrix.multiply(node->updateAndGetWM().m());
+        //stateGL->modelViewMatrix.multiply(node->wm().m());
 
         // Finally draw the nodes mesh
         node->drawMesh(this);

@@ -70,9 +70,9 @@ struct SLNodeStats
     //! Prints all statistic informations on the std out stream.
     void print() const
     {
-        SLfloat voxelsEmpty  = numVoxels ? (SLfloat)numVoxEmpty /
+        SLfloat voxelsEmpty = numVoxels ? (SLfloat)numVoxEmpty /
                                             (SLfloat)numVoxels * 100.0f
-                                         : 0;
+                                        : 0;
         SLfloat avgTriPerVox = numVoxels ? (SLfloat)numTriangles /
                                              (SLfloat)(numVoxels - numVoxEmpty)
                                          : 0;
@@ -261,6 +261,10 @@ public:
         _om = mat;
         needUpdate();
     }
+    void wm(const SLMat4f& mat)
+    {
+        _wm = mat;
+    }
     void         animation(SLAnimation* a) { _animation = a; }
     void         castsShadows(SLbool castsShadows) { _castsShadows = castsShadows; }
     virtual void needUpdate();
@@ -272,6 +276,7 @@ public:
     SLNode*           parent() { return _parent; }
     SLint             depth() const { return _depth; }
     const SLMat4f&    om() { return _om; }
+    const SLMat4f&    wm() { return _wm; }
     const SLMat4f&    initialOM() { return _initialOM; }
     const SLMat4f&    updateAndGetWM() const;
     const SLMat4f&    updateAndGetWMI() const;

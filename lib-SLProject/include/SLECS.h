@@ -3,41 +3,58 @@
 
 #include <inttypes.h>
 #include <SLMat4.h>
+#include <SLNode.h>
+
+namespace ECS
+{
 
 #define MAX_ENTITY_COUNT 100
 
-enum SLComponentType
+typedef int32_t entity_id;
+
+enum ComponentType
 {
     ComponentType_None      = 0,
-    ComponentType_Parent    = 1,
+    ComponentType_TreeNode  = 1,
     ComponentType_Transform = 2
 };
 
-struct SLEntity
+struct Entity
 {
-    uint32_t componentTypes;
+    uint32_t componentFlags;
+    SLNode*  node;
 };
 
-struct SLComponentNodeTree
+struct TreeNodeComponent
 {
-    uint32_t nodeId;
-    uint32_t parentId;
+    entity_id parentNodeId;
 };
 
-struct SLComponentTransform
+struct TransformComponent
 {
     SLMat4f om;
     SLMat4f wm;
 };
 
-struct SLWorld
+struct World
 {
-    int                  entityCount;
-    SLEntity             entities[MAX_ENTITY_COUNT];
-    SLComponentNodeTree  nodeTreeComponents[MAX_ENTITY_COUNT];
-    SLComponentTransform transformComponents[MAX_ENTITY_COUNT];
+    int                entityCount;
+    Entity             entities[MAX_ENTITY_COUNT];
+    TreeNodeComponent  treeNodeComponents[MAX_ENTITY_COUNT];
+    TransformComponent transformComponents[MAX_ENTITY_COUNT];
 };
 
-void transformUpdateSystem(SLWorld& world);
+void convertToComponents(SLNode* root, World& world, entity_id parentNodeId = -1);
+void convertToNodes(World& world);
+
+// entity adders
+entity_id addTreeNode(World&    world,
+                      entity_id parentNodeId,
+                      SLMat4f   om);
+
+// systems
+void transformUpdateSystem(World& world);
+
+};
 
 #endif

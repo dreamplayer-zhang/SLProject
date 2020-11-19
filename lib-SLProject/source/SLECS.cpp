@@ -1,54 +1,99 @@
 #include <SLECS.h>
 
-void transformUpdateSystem(SLWorld& world)
+ECS::entity_id ECS::addTreeNode(ECS::World& world,
+                                entity_id   parentNodeId,
+                                SLMat4f     om)
 {
-    struct TreeNode
+    ECS::entity_id nextFreeId = world.entityCount;
+
+    world.entityCount++;
+
+    world.entities[nextFreeId].componentFlags |= ECS::ComponentType_TreeNode;
+    world.entities[nextFreeId].componentFlags |= ECS::ComponentType_Transform;
+    world.treeNodeComponents[nextFreeId].parentNodeId = parentNodeId;
+    world.transformComponents[nextFreeId].om          = om;
+
+    return nextFreeId;
+}
+
+void ECS::convertToComponents(SLNode*     root,
+                              ECS::World& world,
+                              entity_id   parentNodeId)
+{
+    ECS::entity_id nodeId       = ECS::addTreeNode(world, parentNodeId, root->om());
+    world.entities[nodeId].node = root;
+
+    std::vector<SLNode*> children = root->findChildren<SLNode>("", false);
+
+    for (SLNode* child : children)
     {
-        uint32_t entityId;
-        int      childCount;
+        ECS::convertToComponents(child, world, nodeId);
+    }
+}
 
-        SLMat4f om;
-        SLMat4f wm;
-    };
-
-    TreeNode treeNodes[MAX_ENTITY_COUNT];
-    int      treeNodeCount = 0;
-
-    // find root node
+void ECS::convertToNodes(ECS::World& world)
+{
     for (int i = 0; i < world.entityCount; i++)
     {
-        if ((world.entities[i].componentTypes & ComponentType_Parent) &&
-            (world.entities[i].componentTypes & ComponentType_Transform))
+        ECS::Entity& e = world.entities[i];
+        if ((e.componentFlags & ComponentType_TreeNode) &&
+            (e.componentFlags & ComponentType_Transform) &&
+            e.node)
         {
-            if (world.nodeTreeComponents[i].parentId == -1)
-            {
-                treeNodes[0].entityId   = i;
-                treeNodes[0].childCount = 0;
-                treeNodes[0].om         = world.transformComponents[i].om;
-                treeNodes[0].wm         = world.transformComponents[i].om;
+            ECS::TransformComponent& tC = world.transformComponents[i];
+            e.node->wm(tC.wm);
+        }
+    }
+}
 
-                break;
+void ECS::transformUpdateSystem(ECS::World& world)
+{
+    int nodeIndices[MAX_ENTITY_COUNT];
+    int nodeIndexCount   = 1;
+    int currentNodeIndex = 0;
+    nodeIndices[0]       = -1;
+
+    while (currentNodeIndex < nodeIndexCount)
+    {
+        int currentParentIndex = nodeIndices[currentNodeIndex];
+        currentNodeIndex++;
+
+        for (int i = 0; i < world.entityCount; i++)
+        {
+            ECS::Entity& e = world.entities[i];
+            if ((e.componentFlags & ComponentType_TreeNode) &&
+                (e.componentFlags & ComponentType_Transform))
+            {
+                ECS::TreeNodeComponent& c = world.treeNodeComponents[i];
+                if (c.parentNodeId == currentParentIndex)
+                {
+                    //printf("Tree node found with entity index %i for parent entity index %i\n", i, currentParentIndex);
+
+                    ECS::TransformComponent& tC = world.transformComponents[i];
+                    if (currentParentIndex < 0)
+                        tC.wm = tC.om;
+                    else
+                        tC.wm = world.transformComponents[currentParentIndex].wm * tC.om;
+
+                    bool nodeIndexInList = false;
+                    for (int j = 0; j < nodeIndexCount; j++)
+                    {
+                        if (nodeIndices[j] == i)
+                        {
+                            nodeIndexInList = true;
+                            break;
+                        }
+                    }
+
+                    if (!nodeIndexInList)
+                    {
+                        nodeIndices[nodeIndexCount] = i;
+                        nodeIndexCount++;
+                    }
+                }
             }
         }
     }
 
-    // TODO: build rest of tree
-
-    // if no root node, exit
-    if (treeNodeCount <= 0) return;
-
-    // bfs traversal of tree
-    int parentIndex = 0;
-    int childIndex  = 1;
-
-    for (parentIndex = 0; parentIndex < treeNodeCount; parentIndex++)
-    {
-        TreeNode parentNode     = treeNodes[parentIndex];
-        int      lastChildIndex = childIndex + parentNode.childCount;
-        for (childIndex; childIndex < lastChildIndex; childIndex++)
-        {
-            TreeNode& childNode = treeNodes[childIndex];
-            childNode.wm        = parentNode.wm * childNode.om;
-        }
-    }
+    //printf("End of system\n");
 }
