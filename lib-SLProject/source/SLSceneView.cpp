@@ -876,7 +876,7 @@ void SLSceneView::draw3DGLNodes(SLVNode& nodes,
         });
     }
 
-#if 0
+#if 1
     ECS::World world = {};
     ECS::convertToComponents(_s->root3D(), world);
     ECS::transformUpdateSystem(world);
@@ -890,8 +890,8 @@ void SLSceneView::draw3DGLNodes(SLVNode& nodes,
         stateGL->modelViewMatrix.setMatrix(stateGL->viewMatrix);
 
         // Apply world transform
-        stateGL->modelViewMatrix.multiply(node->updateAndGetWM().m());
-        //stateGL->modelViewMatrix.multiply(node->wm().m());
+        //stateGL->modelViewMatrix.multiply(node->updateAndGetWM().m());
+        stateGL->modelViewMatrix.multiply(node->wm().m());
 
         // Finally draw the nodes mesh
         node->drawMesh(this);

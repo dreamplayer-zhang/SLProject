@@ -1,4 +1,5 @@
 #include <SLECS.h>
+#include <Instrumentor.h>
 
 ECS::entity_id ECS::addTreeNode(ECS::World& world,
                                 entity_id   parentNodeId,
@@ -20,6 +21,8 @@ void ECS::convertToComponents(SLNode*     root,
                               ECS::World& world,
                               entity_id   parentNodeId)
 {
+    PROFILE_FUNCTION();
+
     ECS::entity_id nodeId       = ECS::addTreeNode(world, parentNodeId, root->om());
     world.entities[nodeId].node = root;
 
@@ -33,6 +36,8 @@ void ECS::convertToComponents(SLNode*     root,
 
 void ECS::convertToNodes(ECS::World& world)
 {
+    PROFILE_FUNCTION();
+
     for (int i = 0; i < world.entityCount; i++)
     {
         ECS::Entity& e = world.entities[i];
