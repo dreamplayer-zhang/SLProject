@@ -804,7 +804,8 @@ void SLSceneView::draw3DGLAll()
 {
     PROFILE_FUNCTION();
 
-    // a) Draw nodes with meshes with opaque materials and all helper lines sorted by material
+// a) Draw nodes with meshes with opaque materials and all helper lines sorted by material
+#if 0
     for (auto material : _visibleMaterials3D)
     {
         if (!material->hasAlpha())
@@ -814,6 +815,13 @@ void SLSceneView::draw3DGLAll()
         }
         draw3DGLLines(material->nodesVisible3D());
     }
+#else
+    ECS::World world = {};
+    ECS::convertToComponents(_s->root3D(), world, &this->s()->lights());
+    ECS::transformUpdateSystem(world);
+    ECS::renderSystem(world, SLLight::globalAmbient, SLLight::gamma, SLGLState::instance()->viewMatrix, SLGLState::instance()->projectionMatrix);
+    ECS::convertToNodes(world);
+#endif
 
     // b) Draw remaining opaque nodes without meshes (SLCameras, needs redesign)
     _stats3D.numNodesOpaque += (SLuint)_nodesOpaque3D.size();
@@ -876,13 +884,6 @@ void SLSceneView::draw3DGLNodes(SLVNode& nodes,
         });
     }
 
-#if 1
-    ECS::World world = {};
-    ECS::convertToComponents(_s->root3D(), world);
-    ECS::transformUpdateSystem(world);
-    ECS::convertToNodes(world);
-#endif
-
     // draw the shapes directly with their wm transform
     for (auto* node : nodes)
     {
@@ -890,8 +891,7 @@ void SLSceneView::draw3DGLNodes(SLVNode& nodes,
         stateGL->modelViewMatrix.setMatrix(stateGL->viewMatrix);
 
         // Apply world transform
-        //stateGL->modelViewMatrix.multiply(node->updateAndGetWM().m());
-        stateGL->modelViewMatrix.multiply(node->wm().m());
+        stateGL->modelViewMatrix.multiply(node->updateAndGetWM().m());
 
         // Finally draw the nodes mesh
         node->drawMesh(this);

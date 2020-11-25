@@ -186,7 +186,9 @@ void SLGLVertexArray::generate(SLuint          numVertices,
 
     // Generate and bind VAO
     glGenVertexArrays(1, &_vaoID);
+    GET_GL_ERROR;
     glBindVertexArray(_vaoID);
+    GET_GL_ERROR;
 
     ///////////////////////////////
     // Create Vertex Buffer Objects
@@ -215,8 +217,11 @@ void SLGLVertexArray::generate(SLuint          numVertices,
                _numIndicesEdges * (SLuint)typeSize);
 
         glGenBuffers(1, &_idVBOIndices);
+        GET_GL_ERROR;
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _idVBOIndices);
+        GET_GL_ERROR;
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, tmBufSize, tmpBuf, GL_STATIC_DRAW);
+        GET_GL_ERROR;
         SLGLVertexBuffer::totalBufferCount++;
         SLGLVertexBuffer::totalBufferSize += tmBufSize;
         delete[] tmpBuf;
