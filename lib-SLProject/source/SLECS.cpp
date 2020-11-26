@@ -27,6 +27,7 @@ void ECS::addTreeNodeComponent(ECS::World& world,
 
 void ECS::addLightComponent(ECS::World&    world,
                             ECS::entity_id entityId,
+                            bool32         isOn,
                             SLVec4f        ambient,
                             SLVec4f        diffuse,
                             SLVec4f        specular,
@@ -40,6 +41,7 @@ void ECS::addLightComponent(ECS::World&    world,
 {
     world.entities[entityId].componentFlags |= ECS::ComponentType_Light;
 
+    world.lightComponents[entityId].isOn         = isOn;
     world.lightComponents[entityId].ambient      = ambient;
     world.lightComponents[entityId].diffuse      = diffuse;
     world.lightComponents[entityId].specular     = specular;
@@ -100,6 +102,7 @@ void ECS::convertToComponents(SLNode*     root,
     {
         addLightComponent(world,
                           nodeId,
+                          slLightNode->isOn(),
                           slLightNode->ambient(),
                           slLightNode->diffuse(),
                           slLightNode->specular(),
@@ -355,30 +358,30 @@ void ECS::renderSystem(ECS::World& world,
                                                 //SLGLDepthBuffer* lightShadowMap[SL_MAX_LIGHTS];         //!< pointers to depth-buffers for shadow mapping
 
         // Init to defaults
-        for (SLint i = 0; i < SL_MAX_LIGHTS; ++i)
+        for (int j = 0; j < SL_MAX_LIGHTS; j++)
         {
-            lightIsOn[i] = 0;
+            lightIsOn[j] = 0;
             //lightPosWS[i]      = SLVec4f(0, 0, 1, 1);
-            lightPosVS[i]    = SLVec4f(0, 0, 1, 1);
-            lightAmbient[i]  = SLCol4f::BLACK;
-            lightDiffuse[i]  = SLCol4f::BLACK;
-            lightSpecular[i] = SLCol4f::BLACK;
+            lightPosVS[j]    = SLVec4f(0, 0, 1, 1);
+            lightAmbient[j]  = SLCol4f::BLACK;
+            lightDiffuse[j]  = SLCol4f::BLACK;
+            lightSpecular[j] = SLCol4f::BLACK;
             //lightSpotDirWS[i]  = SLVec3f(0, 0, -1);
-            lightSpotDirVS[i]  = SLVec3f(0, 0, -1);
-            lightSpotCutoff[i] = 180.0f;
-            lightSpotCosCut[i] = cos(Utils::DEG2RAD * lightSpotCutoff[i]);
-            lightSpotExp[i]    = 1.0f;
-            lightAtt[i].set(1.0f, 0.0f, 0.0f);
-            lightDoAtt[i] = 0;
+            lightSpotDirVS[j]  = SLVec3f(0, 0, -1);
+            lightSpotCutoff[j] = 180.0f;
+            lightSpotCosCut[j] = cos(Utils::DEG2RAD * lightSpotCutoff[i]);
+            lightSpotExp[j]    = 1.0f;
+            lightAtt[j].set(1.0f, 0.0f, 0.0f);
+            lightDoAtt[j] = 0;
             /*for (SLint ii = 0; ii < 6; ++ii)
-                lightSpace[i * 6 + ii] = SLMat4f();
-            lightCreatesShadows[i]    = 0;
-            lightDoSmoothShadows[i]   = 0;
-            lightSmoothShadowLevel[i] = 1;
-            lightShadowMinBias[i]     = 0.001f;
-            lightShadowMaxBias[i]     = 0.008f;
-            lightUsesCubemap[i]       = 0;
-            lightShadowMap[i]         = nullptr;*/
+                lightSpace[j * 6 + ii] = SLMat4f();
+            lightCreatesShadows[j]    = 0;
+            lightDoSmoothShadows[j]   = 0;
+            lightSmoothShadowLevel[j] = 1;
+            lightShadowMinBias[j]     = 0.001f;
+            lightShadowMaxBias[j]     = 0.008f;
+            lightUsesCubemap[j]       = 0;
+            lightShadowMap[j]         = nullptr;*/
         }
 
         // Fill up light property vectors
@@ -390,33 +393,33 @@ void ECS::renderSystem(ECS::World& world,
             TransformComponent& tc = std::get<TransformComponent>(lightAndTransform);
             //SLShadowMap*   shadowMap = light->shadowMap();
 
-            lightIsOn[i]  = lc.isOn;
+            lightIsOn[j]  = lc.isOn;
             SLVec4f posWS = tc.wm.translation();
             //lightPosWS[i].set(posWS);
             SLVec4f posVS = viewMat * posWS;
-            lightPosVS[i].set(posVS);
-            lightAmbient[i].set(lc.ambient);
-            lightDiffuse[i].set(lc.diffuse);
-            lightSpecular[i].set(lc.specular);
+            lightPosVS[j].set(posVS);
+            lightAmbient[j].set(lc.ambient);
+            lightDiffuse[j].set(lc.diffuse);
+            lightSpecular[j].set(lc.specular);
             SLVec3f dirWS = SLVec3f(-tc.om.m(8), -tc.om.m(9), -tc.om.m(10));
-            //lightSpotDirWS[i].set(dirWS);
+            //lightSpotDirWS[j].set(dirWS);
             SLVec3f dirVS = viewRotMat.multVec(dirWS);
-            lightSpotDirVS[i].set(dirVS);
-            lightSpotCutoff[i] = lc.spotCutoff;
-            lightSpotCosCut[i] = lc.spotCosCut;
-            lightSpotExp[i]    = lc.spotExp;
-            lightAtt[i]        = SLVec3f(lc.kc, lc.kl, lc.kq);
-            lightDoAtt[i]      = lc.isAttenuated;
-            /*lightCreatesShadows[i]    = light->createsShadows();
-            lightDoSmoothShadows[i]   = light->doSoftShadows();
-            lightSmoothShadowLevel[i] = light->softShadowLevel();
-            lightShadowMinBias[i]     = light->shadowMinBias();
-            lightShadowMaxBias[i]     = light->shadowMaxBias();
-            lightUsesCubemap[i]       = shadowMap && shadowMap->useCubemap() ? 1 : 0;
-            lightShadowMap[i]         = shadowMap && shadowMap->depthBuffer() ? shadowMap->depthBuffer() : nullptr;
-            if (lightShadowMap[i])
+            lightSpotDirVS[j].set(dirVS);
+            lightSpotCutoff[j] = lc.spotCutoff;
+            lightSpotCosCut[j] = lc.spotCosCut;
+            lightSpotExp[j]    = lc.spotExp;
+            lightAtt[j]        = SLVec3f(lc.kc, lc.kl, lc.kq);
+            lightDoAtt[j]      = lc.isAttenuated;
+            /*lightCreatesShadows[j]    = light->createsShadows();
+            lightDoSmoothShadows[j]   = light->doSoftShadows();
+            lightSmoothShadowLevel[j] = light->softShadowLevel();
+            lightShadowMinBias[j]     = light->shadowMinBias();
+            lightShadowMaxBias[j]     = light->shadowMaxBias();
+            lightUsesCubemap[j]       = shadowMap && shadowMap->useCubemap() ? 1 : 0;
+            lightShadowMap[j]         = shadowMap && shadowMap->depthBuffer() ? shadowMap->depthBuffer() : nullptr;
+            if (lightShadowMap[j])
                 for (SLint ls = 0; ls < 6; ++ls)
-                    lightSpace[i * 6 + ls] = shadowMap->mvp()[ls];
+                    lightSpace[j * 6 + ls] = shadowMap->mvp()[ls];
                     */
         }
 

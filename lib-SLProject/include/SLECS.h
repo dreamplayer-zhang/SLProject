@@ -94,6 +94,7 @@ void      addTreeNodeComponent(World&    world,
                                SLMat4f   om);
 void      addLightComponent(World&    world,
                             entity_id entityId,
+                            bool32    isOn,
                             SLVec4f   ambient,
                             SLVec4f   diffuse,
                             SLVec4f   specular,

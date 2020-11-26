@@ -805,7 +805,7 @@ void SLSceneView::draw3DGLAll()
     PROFILE_FUNCTION();
 
 // a) Draw nodes with meshes with opaque materials and all helper lines sorted by material
-#if 0
+#if 1
     for (auto material : _visibleMaterials3D)
     {
         if (!material->hasAlpha())
