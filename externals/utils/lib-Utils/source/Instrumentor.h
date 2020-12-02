@@ -18,9 +18,10 @@
 #include <algorithm>
 #include <fstream>
 #include <thread>
+#include <mutex>
 
 // Set PROFILING to 1 to enable profiling or to 0 for disabling profiling
-#define PROFILING 0
+#define PROFILING 1
 
 //-----------------------------------------------------------------------------
 #if PROFILING
